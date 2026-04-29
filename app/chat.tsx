@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
 import { COLORS, SIZES } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 
-const API_URL = "https://naelo-api.auto-poster-ai.com";
+const API_URL = "https://mynaelo.com";
 
 type Message = { id: string; role: "user" | "assistant"; text: string };
 

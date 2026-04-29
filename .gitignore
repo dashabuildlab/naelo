@@ -46,3 +46,4 @@ app-example
 .env
 *.tar.gz
 *.zip
+deploy_key
