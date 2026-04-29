@@ -1,24 +1,21 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+// ~/luma/app/_layout.tsx
+import { Stack } from "expo-router";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <KeyboardProvider>
+      <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="home" />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="pharmacy" />
+        <Stack.Screen name="my-path" />
+        <Stack.Screen name="dream-path" />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </KeyboardProvider>
   );
 }
