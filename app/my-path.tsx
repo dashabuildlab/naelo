@@ -3,11 +3,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated, Dimensions, Image, ScrollView, StatusBar,
+  Alert, Animated, Dimensions, Image, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { deleteUser } from "firebase/auth";
+import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
 import { COLORS, SIZES, SHARED } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
@@ -98,6 +100,55 @@ export default function MyPathScreen() {
     };
     load();
   }, []));
+
+  // ── Видалити акаунт ─────────────────────────────────────────────
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Видалити акаунт?",
+      "Всі твої дані — вогник, історія, налаштування — будуть стерті назавжди. Це незворотня дія.",
+      [
+        { text: "Скасувати", style: "cancel" },
+        {
+          text: "Видалити",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              const uid = session?.user?.id || auth.currentUser?.uid;
+
+              if (uid) {
+                // 1. Видалити дані з Supabase
+                await supabase.from("daily_checkins").delete().eq("user_id", uid);
+                await supabase.from("profiles").delete().eq("id", uid);
+                await supabase.auth.signOut();
+              }
+
+              // 2. Видалити Firebase акаунт
+              if (auth.currentUser) {
+                await deleteUser(auth.currentUser);
+              }
+
+              // 3. Очистити AsyncStorage
+              await AsyncStorage.clear();
+
+              // 4. Перейти до екрану авторизації
+              router.replace("/auth");
+            } catch (e: any) {
+              // Firebase вимагає недавнього входу для видалення
+              if (e?.code === "auth/requires-recent-login") {
+                Alert.alert(
+                  "Потрібна повторна авторизація",
+                  "Вийди та увійди знову, потім спробуй видалити акаунт.",
+                );
+              } else {
+                Alert.alert("Помилка", e?.message || "Не вдалося видалити акаунт");
+              }
+            }
+          },
+        },
+      ],
+    );
+  };
 
   // --- Міні-графік енергії (останні 7 днів) ---
   const last7 = checkins.slice(0, 7).reverse();
@@ -240,6 +291,14 @@ export default function MyPathScreen() {
           })}
         </View>
 
+        {/* ═══ Зона акаунту ═══ */}
+        <View style={styles.accountSection}>
+          <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount} activeOpacity={0.75}>
+            <Text style={styles.deleteBtnText}>🗑 Видалити акаунт</Text>
+          </TouchableOpacity>
+          <Text style={styles.deleteHint}>Всі дані будуть видалені назавжди</Text>
+        </View>
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -306,6 +365,16 @@ const styles = StyleSheet.create({
   entryNote: { color: "rgba(255,255,255,0.75)", fontSize: 14, lineHeight: 20, fontStyle: "italic" },
   entryHintsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   entryHint: { color: "rgba(255,255,255,0.5)", fontSize: 12, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+
+  // Акаунт / видалення
+  accountSection: { marginTop: 24, alignItems: "center", gap: 8 },
+  deleteBtn: {
+    paddingHorizontal: 28, paddingVertical: 13,
+    borderRadius: 30, borderWidth: 1.5, borderColor: "rgba(255,80,80,0.45)",
+    backgroundColor: "rgba(255,60,60,0.07)",
+  },
+  deleteBtnText: { color: "#FF6B6B", fontSize: 15, fontWeight: "700" },
+  deleteHint: { color: "rgba(255,255,255,0.22)", fontSize: 12, textAlign: "center" },
 
   // Пусто
   emptyCard: {

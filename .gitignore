@@ -41,3 +41,8 @@ app-example
 # generated native folders
 /ios
 /android
+
+# secrets
+.env
+*.tar.gz
+*.zip

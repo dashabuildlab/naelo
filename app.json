@@ -8,9 +8,6 @@
     "scheme": "luma",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -39,8 +36,14 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-apple-authentication",
+      "expo-web-browser"
     ],
+    "ios": {
+      "supportsTablet": true,
+      "usesAppleSignIn": true
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

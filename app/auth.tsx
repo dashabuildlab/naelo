@@ -1,5 +1,5 @@
 // ~/luma/app/auth.tsx
-// Екран авторизації — вхід та реєстрація з збереженням профілю
+// Авторизація: Google, Apple, Email — через Firebase SDK
 
 import { useState } from "react";
 import {
@@ -8,8 +8,25 @@ import {
   TouchableOpacity, View, Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import {
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithCredential,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
+
+import * as Google from "expo-auth-session/providers/google";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
+import * as WebBrowser from "expo-web-browser";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -18,53 +35,127 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const saveProfile = async (userId: string) => {
-    const name = await AsyncStorage.getItem("luma_name") || "";
-    const score = Number(await AsyncStorage.getItem("luma_score") || 50);
-    const goal = await AsyncStorage.getItem("luma_goal") || "";
-    const energy = await AsyncStorage.getItem("luma_energy") || "";
+  // ── Google OAuth ─────────────────────────────────────────────────
+  const [, response, promptGoogleAsync] = Google.useAuthRequest({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  });
 
-    await supabase.from("profiles").upsert({
-      id: userId,
-      name,
-      score,
-      goal,
-      energy_level: energy,
-      streak: 0,
-    });
-  };
-
-  const handleAuth = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Помилка", "Введи email та пароль");
+  // Обробка відповіді від Google
+  const handleGoogleResponse = async () => {
+    if (!response) return;
+    if (response.type !== "success") {
+      if (response.type === "error") Alert.alert("Помилка", "Google Sign-In не вдалося");
       return;
     }
     setLoading(true);
     try {
-      if (mode === "register") {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        if (data.user) {
-          await saveProfile(data.user.id);
-        }
-        router.replace("/home");
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        if (data.user) {
-          await saveProfile(data.user.id);
-        }
-        router.replace("/home");
-      }
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      const result = await signInWithCredential(auth, credential);
+      await syncProfile(result.user.uid, result.user.displayName || "");
+      router.replace("/home");
     } catch (e: any) {
-      Alert.alert("Помилка", e.message || "Спробуй ще раз");
+      Alert.alert("Помилка", e.message || "Google Sign-In не вдалося");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSkip = async () => {
-    router.replace("/home");
+  // Запустити Google OAuth і одразу обробити
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const result = await promptGoogleAsync();
+      if (result?.type === "success") {
+        const { id_token } = result.params;
+        const credential = GoogleAuthProvider.credential(id_token);
+        const fbResult = await signInWithCredential(auth, credential);
+        await syncProfile(fbResult.user.uid, fbResult.user.displayName || "");
+        router.replace("/home");
+      }
+    } catch (e: any) {
+      Alert.alert("Помилка", e.message || "Google Sign-In не вдалося");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Apple Sign-In (тільки iOS) ───────────────────────────────────
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    try {
+      const rawNonce =
+        Math.random().toString(36).slice(2) +
+        Math.random().toString(36).slice(2);
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+      const apple = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+      const credential = new OAuthProvider("apple.com").credential({
+        idToken: apple.identityToken!,
+        rawNonce,
+      });
+      const result = await signInWithCredential(auth, credential);
+      const name = apple.fullName
+        ? `${apple.fullName.givenName || ""} ${apple.fullName.familyName || ""}`.trim()
+        : result.user.displayName || "";
+      await syncProfile(result.user.uid, name);
+      router.replace("/home");
+    } catch (e: any) {
+      if (e.code !== "ERR_REQUEST_CANCELED") Alert.alert("Помилка", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Email ────────────────────────────────────────────────────────
+  const handleEmailAuth = async () => {
+    if (!email.trim() || password.length < 6) {
+      Alert.alert("Помилка", "Введи email та пароль (мін. 6 символів)");
+      return;
+    }
+    setLoading(true);
+    try {
+      let uid = "";
+      if (mode === "register") {
+        const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        uid = user.uid;
+      } else {
+        const { user } = await signInWithEmailAndPassword(auth, email.trim(), password);
+        uid = user.uid;
+      }
+      await syncProfile(uid, "");
+      router.replace("/home");
+    } catch (e: any) {
+      const msg =
+        e?.code === "auth/email-already-in-use" ? "Цей email вже зареєстровано"
+        : e?.code === "auth/user-not-found" || e?.code === "auth/wrong-password"
+          ? "Неправильний email або пароль"
+          : e?.message ?? "Спробуй ще раз";
+      Alert.alert("Помилка", msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Синхронізація профілю в Supabase ────────────────────────────
+  const syncProfile = async (uid: string, displayName: string) => {
+    const name = displayName || await AsyncStorage.getItem("luma_name") || "";
+    const score = Number(await AsyncStorage.getItem("luma_score") || 50);
+    await supabase.from("profiles").upsert({
+      id: uid,
+      name,
+      score,
+      streak: 0,
+    });
   };
 
   return (
@@ -86,6 +177,58 @@ export default function AuthScreen() {
         </Text>
 
         <View style={styles.form}>
+
+          {/* Google */}
+          <TouchableOpacity
+            style={[styles.btnSocial, loading && styles.btnDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="logo-google" size={20} color="#fff" />
+            <Text style={styles.btnSocialText}>Продовжити через Google</Text>
+          </TouchableOpacity>
+
+          {/* Apple — тільки iOS */}
+          {Platform.OS === "ios" && (
+            <TouchableOpacity
+              style={[styles.btnApple, loading && styles.btnDisabled]}
+              onPress={handleAppleSignIn}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="logo-apple" size={20} color="#000" />
+              <Text style={styles.btnAppleText}>Продовжити через Apple</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>або через email</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Mode toggle */}
+          <View style={styles.modeRow}>
+            <TouchableOpacity
+              style={[styles.modeBtn, mode === "register" && styles.modeBtnActive]}
+              onPress={() => setMode("register")}
+            >
+              <Text style={[styles.modeBtnText, mode === "register" && styles.modeBtnTextActive]}>
+                Реєстрація
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeBtn, mode === "login" && styles.modeBtnActive]}
+              onPress={() => setMode("login")}
+            >
+              <Text style={[styles.modeBtnText, mode === "login" && styles.modeBtnTextActive]}>
+                Вхід
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -107,7 +250,7 @@ export default function AuthScreen() {
 
           <TouchableOpacity
             style={[styles.btnPrimary, loading && styles.btnDisabled]}
-            onPress={handleAuth}
+            onPress={handleEmailAuth}
             disabled={loading}
           >
             {loading
@@ -118,21 +261,7 @@ export default function AuthScreen() {
             }
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setMode(mode === "login" ? "register" : "login")}>
-            <Text style={styles.switchText}>
-              {mode === "register"
-                ? "Вже є акаунт? Увійти"
-                : "Немає акаунту? Зареєструватись"}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>або</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity style={styles.btnSkip} onPress={handleSkip}>
+          <TouchableOpacity style={styles.btnSkip} onPress={() => router.replace("/home")}>
             <Text style={styles.skipText}>Пропустити поки що →</Text>
           </TouchableOpacity>
         </View>
@@ -142,20 +271,39 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0a0812" },
-  content: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
-  logo: { fontSize: 36, marginBottom: 24 },
-  title: { color: "#fff", fontSize: 26, fontWeight: "700", textAlign: "center" },
-  subtitle: { color: "rgba(255,255,255,0.5)", fontSize: 15, marginTop: 8, marginBottom: 32, textAlign: "center" },
-  form: { width: "100%", gap: 14 },
-  input: { width: "100%", paddingVertical: 16, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 16 },
-  btnPrimary: { paddingVertical: 16, borderRadius: 30, borderWidth: 1.5, borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.1)", alignItems: "center" },
-  btnDisabled: { opacity: 0.5 },
-  btnText: { color: "#FFB300", fontSize: 16, fontWeight: "700" },
-  switchText: { color: "rgba(255,255,255,0.5)", fontSize: 14, textAlign: "center" },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.1)" },
-  dividerText: { color: "rgba(255,255,255,0.3)", fontSize: 13 },
-  btnSkip: { paddingVertical: 14, alignItems: "center" },
-  skipText: { color: "rgba(255,255,255,0.3)", fontSize: 14 },
+  container:       { flex: 1, backgroundColor: "#0a0812" },
+  content:         { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
+  logo:            { fontSize: 36, marginBottom: 24 },
+  title:           { color: "#fff", fontSize: 26, fontWeight: "700", textAlign: "center" },
+  subtitle:        { color: "rgba(255,255,255,0.5)", fontSize: 15, marginTop: 8, marginBottom: 32, textAlign: "center" },
+  form:            { width: "100%", gap: 12 },
+
+  // Social buttons
+  btnSocial:       { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 15, borderRadius: 30, backgroundColor: "#4285F4" },
+  btnSocialText:   { color: "#fff", fontSize: 15, fontWeight: "700" },
+  btnApple:        { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 15, borderRadius: 30, backgroundColor: "#fff" },
+  btnAppleText:    { color: "#000", fontSize: 15, fontWeight: "700" },
+
+  // Divider
+  divider:         { flexDirection: "row", alignItems: "center", gap: 12 },
+  dividerLine:     { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.1)" },
+  dividerText:     { color: "rgba(255,255,255,0.3)", fontSize: 13 },
+
+  // Mode toggle
+  modeRow:         { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 30, padding: 3 },
+  modeBtn:         { flex: 1, paddingVertical: 10, borderRadius: 30, alignItems: "center" },
+  modeBtnActive:   { backgroundColor: "#FFB300" },
+  modeBtnText:     { color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" },
+  modeBtnTextActive: { color: "#000", fontWeight: "700" },
+
+  // Inputs
+  input:           { width: "100%", paddingVertical: 16, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 16 },
+
+  // Email button
+  btnPrimary:      { paddingVertical: 16, borderRadius: 30, borderWidth: 1.5, borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.1)", alignItems: "center" },
+  btnDisabled:     { opacity: 0.5 },
+  btnText:         { color: "#FFB300", fontSize: 16, fontWeight: "700" },
+
+  btnSkip:         { paddingVertical: 14, alignItems: "center" },
+  skipText:        { color: "rgba(255,255,255,0.3)", fontSize: 14 },
 });
