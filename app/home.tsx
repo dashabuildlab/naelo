@@ -1,5 +1,5 @@
 // ~/luma/app/home.tsx
-// Головний екран — Вогник душі + питання дня + порада Luma
+// Головний екран — Вогник душі + питання дня + порада Naelo
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -100,7 +100,7 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => {
     const load = async () => {
-      const name = await AsyncStorage.getItem("luma_name");
+      const name = await AsyncStorage.getItem("naelo_name");
       if (name) setUserName(name);
 
       try {
@@ -131,14 +131,14 @@ export default function HomeScreen() {
 
           // Синхронізувати дані онбордингу в профіль (один раз)
           if (profile && !profile.score) {
-            const goalRaw = await AsyncStorage.getItem("luma_goal");
-            const scoreRaw = await AsyncStorage.getItem("luma_score");
-            const drainsRaw = await AsyncStorage.getItem("luma_drains");
-            const drainsTextRaw = await AsyncStorage.getItem("luma_drains_text");
-            const concernsRaw = await AsyncStorage.getItem("luma_concerns");
-            const concernsTextRaw = await AsyncStorage.getItem("luma_concerns_text");
-            const giversTextRaw = await AsyncStorage.getItem("luma_givers_text");
-            const giversRaw = await AsyncStorage.getItem("luma_givers");
+            const goalRaw = await AsyncStorage.getItem("naelo_goal");
+            const scoreRaw = await AsyncStorage.getItem("naelo_score");
+            const drainsRaw = await AsyncStorage.getItem("naelo_drains");
+            const drainsTextRaw = await AsyncStorage.getItem("naelo_drains_text");
+            const concernsRaw = await AsyncStorage.getItem("naelo_concerns");
+            const concernsTextRaw = await AsyncStorage.getItem("naelo_concerns_text");
+            const giversTextRaw = await AsyncStorage.getItem("naelo_givers_text");
+            const giversRaw = await AsyncStorage.getItem("naelo_givers");
             await supabase.from("profiles").update({
               goal: goalRaw || "",
               energy_drains: drainsRaw || "[]",
@@ -151,7 +151,7 @@ export default function HomeScreen() {
             }).eq("id", uid);
           }
         } else {
-          const savedScore = await AsyncStorage.getItem("luma_score");
+          const savedScore = await AsyncStorage.getItem("naelo_score");
           if (savedScore) setScore(Number(savedScore));
         }
       } catch (e) {}
@@ -297,7 +297,7 @@ export default function HomeScreen() {
         <Text style={styles.headerTitle}>Привіт, {userName || "друже"} ✨</Text>
         <View style={styles.onlineRow}>
           <View style={styles.onlineDot} />
-          <Text style={styles.onlineText}>Luma</Text>
+          <Text style={styles.onlineText}>Naelo</Text>
         </View>
       </View>
 
@@ -311,7 +311,7 @@ export default function HomeScreen() {
           <Text style={[styles.scoreValue, { color: scoreColor(score) }]}>{score}%</Text>
         </View>
 
-        {/* Порада Luma */}
+        {/* Порада Naelo */}
         <View style={styles.adviceCard}>
           <Text style={styles.adviceText}>{advice.emoji} {advice.text}</Text>
         </View>
@@ -359,9 +359,9 @@ export default function HomeScreen() {
         ) : (
           <View style={styles.answeredCard}>
             <Text style={styles.answeredTitle}>✅ Ти вже відповів сьогодні</Text>
-            <Text style={styles.answeredSub}>Завтра Luma запитає щось нове</Text>
+            <Text style={styles.answeredSub}>Завтра Naelo запитає щось нове</Text>
             <TouchableOpacity style={styles.chatBtn} onPress={() => router.push("/chat")}>
-              <Text style={styles.chatBtnText}>💬 Поговорити з Luma</Text>
+              <Text style={styles.chatBtnText}>💬 Поговорити з Naelo</Text>
             </TouchableOpacity>
           </View>
         )}

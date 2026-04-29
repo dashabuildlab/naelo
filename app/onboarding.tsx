@@ -214,17 +214,17 @@ export default function OnboardingScreen() {
   };
 
   const finishOnboarding = async () => {
-    await AsyncStorage.setItem("luma_onboarded", "true");
-    await AsyncStorage.setItem("luma_name", name);
-    await AsyncStorage.setItem("luma_score", String(score));
-    await AsyncStorage.setItem("luma_goal", goal || customGoal);
-    await AsyncStorage.setItem("luma_energy", energyLevel?.toString() || "50");
-    await AsyncStorage.setItem("luma_givers", JSON.stringify(givers));
-    await AsyncStorage.setItem("luma_givers_text", giversText);
-    await AsyncStorage.setItem("luma_drains", JSON.stringify(drains));
-    await AsyncStorage.setItem("luma_drains_text", drainsText);
-    await AsyncStorage.setItem("luma_concerns", JSON.stringify(concerns));
-    await AsyncStorage.setItem("luma_concerns_text", concernsText);
+    await AsyncStorage.setItem("naelo_onboarded", "true");
+    await AsyncStorage.setItem("naelo_name", name);
+    await AsyncStorage.setItem("naelo_score", String(score));
+    await AsyncStorage.setItem("naelo_goal", goal || customGoal);
+    await AsyncStorage.setItem("naelo_energy", energyLevel?.toString() || "50");
+    await AsyncStorage.setItem("naelo_givers", JSON.stringify(givers));
+    await AsyncStorage.setItem("naelo_givers_text", giversText);
+    await AsyncStorage.setItem("naelo_drains", JSON.stringify(drains));
+    await AsyncStorage.setItem("naelo_drains_text", drainsText);
+    await AsyncStorage.setItem("naelo_concerns", JSON.stringify(concerns));
+    await AsyncStorage.setItem("naelo_concerns_text", concernsText);
     router.replace("/auth");
   };
 
@@ -460,7 +460,7 @@ export default function OnboardingScreen() {
                   {name}, твій вогник запалено! 🔥
                 </Text>
                 <Text style={styles.resultScore}>{score}%</Text>
-                <Text style={styles.resultLabel}>Початковий Luma Score</Text>
+                <Text style={styles.resultLabel}>Початковий Naelo Score</Text>
                 <Text style={styles.resultSub}>
                   {score >= 70
                     ? "Чудово! Твоя енергія вже сильна. Підтримаємо цей рівень разом."
@@ -476,11 +476,11 @@ export default function OnboardingScreen() {
                     ⚡ {givers.length > 0 ? `${givers.length} джерел енергії` : "Твої джерела сили"} → стануть твоїми звичками
                   </Text>
                   <Text style={styles.resultDetailText}>
-                    🛡 {drains.length > 0 ? `${drains.length} загроз` : "Твої виклики"} → Luma слідкуватиме
+                    🛡 {drains.length > 0 ? `${drains.length} загроз` : "Твої виклики"} → Naelo слідкуватиме
                   </Text>
                 </View>
                 <TouchableOpacity style={styles.btnPrimary} onPress={finishOnboarding}>
-                  <Text style={styles.btnText}>Увійти в Luma ✨</Text>
+                  <Text style={styles.btnText}>Увійти в Naelo ✨</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.privacyConsent}
@@ -489,7 +489,7 @@ export default function OnboardingScreen() {
                 >
                   <Text style={styles.privacyConsentText}>
                     Натискаючи кнопку, ти погоджуєшся з{"\n"}
-                    <Text style={styles.privacyConsentLink}>Політикою конфіденційності Luma</Text>
+                    <Text style={styles.privacyConsentLink}>Політикою конфіденційності Naelo</Text>
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -10,7 +10,7 @@ const TABS = [
   { icon: "☰", label: "Мій шлях",  route: "/my-path" },
   { icon: "⚡", label: "Фокус",     route: "/pharmacy" },
   { icon: "✦", label: "Мрії",      route: "/dream-path" },
-  { icon: "◉", label: "Luma",      route: "/chat" },
+  { icon: "◉", label: "Naelo",     route: "/chat" },
 ] as const;
 
 type Props = {

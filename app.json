@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "luma",
-    "slug": "luma",
+    "name": "naelo",
+    "slug": "naelo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "luma",
+    "scheme": "naelo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
-      "package": "com.luma.app",
+      "package": "com.naelo.app",
       "targetSdkVersion": 35,
       "compileSdkVersion": 35,
       "minSdkVersion": 26,
@@ -47,7 +47,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.luma.app"
+      "bundleIdentifier": "com.naelo.app"
     },
     "experiments": {
       "typedRoutes": true,

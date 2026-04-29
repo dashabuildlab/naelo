@@ -158,7 +158,7 @@ export default function PharmacyScreen() {
     if (profile) {
       const newScore = Math.min((profile.score || 0) + 2, 100);
       await supabase.from("profiles").update({ score: newScore }).eq("id", userId);
-      await AsyncStorage.setItem("luma_score", String(newScore));
+      await AsyncStorage.setItem("naelo_score", String(newScore));
     }
     setCompletedToday((prev) => ({ ...prev, [practice.id]: (prev[practice.id] || 0) + 1 }));
     setTotalToday((prev) => prev + 1);

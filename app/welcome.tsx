@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
 
       {/* Контент */}
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <Text style={styles.title}>Привіт! Я Luma ✨</Text>
+        <Text style={styles.title}>Привіт! Я Naelo ✨</Text>
         <Text style={styles.subtitle}>
           Я допоможу тобі бачити свою енергію{"\n"}і покращувати її щодня
         </Text>

@@ -18,7 +18,7 @@ export default function IndexScreen() {
       }
 
       // 2. Перевіряємо онбординг
-      const onboarded = await AsyncStorage.getItem("luma_onboarded");
+      const onboarded = await AsyncStorage.getItem("naelo_onboarded");
       if (onboarded === "true") {
         router.replace("/home");
       } else {

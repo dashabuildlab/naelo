@@ -63,13 +63,13 @@ export default function MyPathScreen() {
       setLoading(true);
       try {
         // Завантажити персональні дані
-        const gRaw = await AsyncStorage.getItem("luma_givers");
+        const gRaw = await AsyncStorage.getItem("naelo_givers");
         if (gRaw) setGivers(JSON.parse(gRaw));
-        const dRaw = await AsyncStorage.getItem("luma_drains");
+        const dRaw = await AsyncStorage.getItem("naelo_drains");
         if (dRaw) setDrains(JSON.parse(dRaw));
-        const gtRaw = await AsyncStorage.getItem("luma_givers_text");
+        const gtRaw = await AsyncStorage.getItem("naelo_givers_text");
         if (gtRaw) setGiversText(gtRaw);
-        const dtRaw = await AsyncStorage.getItem("luma_drains_text");
+        const dtRaw = await AsyncStorage.getItem("naelo_drains_text");
         if (dtRaw) setDrainsText(dtRaw);
 
         const { data: { session } } = await supabase.auth.getSession();

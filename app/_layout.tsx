@@ -15,6 +15,7 @@ export default function RootLayout() {
         <Stack.Screen name="pharmacy" />
         <Stack.Screen name="my-path" />
         <Stack.Screen name="dream-path" />
+        <Stack.Screen name="privacy" />
       </Stack>
     </KeyboardProvider>
   );

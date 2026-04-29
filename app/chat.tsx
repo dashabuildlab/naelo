@@ -1,5 +1,5 @@
 // ~/luma/app/chat.tsx
-// AI Чат з Luma — з реальним контекстом користувача
+// AI Чат з Naelo — з реальним контекстом користувача
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
 import { COLORS, SIZES } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 
-const API_URL = "https://luma-api.auto-poster-ai.com";
+const API_URL = "https://naelo-api.auto-poster-ai.com";
 
 type Message = { id: string; role: "user" | "assistant"; text: string };
 
@@ -28,7 +28,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", role: "assistant", text: "Привіт! Я Luma — твій особистий провідник ✨\nЯ бачу твій стан і готова допомогти. Про що хочеш поговорити?" },
+    { id: "0", role: "assistant", text: "Привіт! Я Naelo — твій особистий провідник ✨\nЯ бачу твій стан і готова допомогти. Про що хочеш поговорити?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,17 +46,17 @@ export default function ChatScreen() {
   useEffect(() => { loadContext(); }, []);
 
   const loadContext = async () => {
-    const name = await AsyncStorage.getItem("luma_name") || "";
-    const g = await AsyncStorage.getItem("luma_goal") || "";
-    const e = await AsyncStorage.getItem("luma_energy") || "";
+    const name = await AsyncStorage.getItem("naelo_name") || "";
+    const g = await AsyncStorage.getItem("naelo_goal") || "";
+    const e = await AsyncStorage.getItem("naelo_energy") || "";
     setUserName(name); setGoal(g); setEnergy(e);
 
     // Завантажити опори з онбордингу
     try {
-      const gRaw = await AsyncStorage.getItem("luma_givers");
-      const dRaw = await AsyncStorage.getItem("luma_drains");
-      const gtRaw = await AsyncStorage.getItem("luma_givers_text");
-      const dtRaw = await AsyncStorage.getItem("luma_drains_text");
+      const gRaw = await AsyncStorage.getItem("naelo_givers");
+      const dRaw = await AsyncStorage.getItem("naelo_drains");
+      const gtRaw = await AsyncStorage.getItem("naelo_givers_text");
+      const dtRaw = await AsyncStorage.getItem("naelo_drains_text");
       const givers = gRaw ? JSON.parse(gRaw) : [];
       const drains = dRaw ? JSON.parse(dRaw) : [];
       const parts: string[] = [];
@@ -142,7 +142,7 @@ export default function ChatScreen() {
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>✨ Luma AI</Text>
+          <Text style={styles.headerTitle}>✨ Naelo AI</Text>
           <View style={styles.onlineRow}>
             <View style={styles.onlineDot} />
             <Text style={styles.onlineText}>онлайн</Text>
@@ -167,13 +167,13 @@ export default function ChatScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={styles.messages} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
         {messages.map((msg) => (
           <View key={msg.id} style={[styles.bubble, msg.role === "user" ? styles.bubbleUser : styles.bubbleAI]}>
-            {msg.role === "assistant" && <Text style={styles.aiLabel}>Luma ✨</Text>}
+            {msg.role === "assistant" && <Text style={styles.aiLabel}>Naelo ✨</Text>}
             <Text style={[styles.bubbleText, msg.role === "user" && styles.bubbleTextUser]}>{msg.text}</Text>
           </View>
         ))}
         {loading && (
           <View style={[styles.bubble, styles.bubbleAI]}>
-            <Text style={styles.aiLabel}>Luma ✨</Text>
+            <Text style={styles.aiLabel}>Naelo ✨</Text>
             <View style={styles.typingRow}>
               <ActivityIndicator color={COLORS.primary} size="small" />
               <Text style={styles.typingText}>аналізую твій стан...</Text>
@@ -192,7 +192,7 @@ export default function ChatScreen() {
       </ScrollView>
 
       <View style={styles.inputRow}>
-        <TextInput style={styles.input} placeholder="Запитай Luma про свій стан..." placeholderTextColor={COLORS.textPlaceholder} value={input} onChangeText={setInput} multiline returnKeyType="send" onSubmitEditing={() => sendMessage(input)} />
+        <TextInput style={styles.input} placeholder="Запитай Naelo про свій стан..." placeholderTextColor={COLORS.textPlaceholder} value={input} onChangeText={setInput} multiline returnKeyType="send" onSubmitEditing={() => sendMessage(input)} />
         <TouchableOpacity style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]} onPress={() => sendMessage(input)} disabled={!input.trim() || loading}>
           <Text style={styles.sendIcon}>↑</Text>
         </TouchableOpacity>

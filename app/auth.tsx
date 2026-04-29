@@ -170,8 +170,8 @@ export default function AuthScreen() {
 
   // ── Синхронізація профілю в Supabase ────────────────────────────
   const syncProfile = async (uid: string, displayName: string) => {
-    const name = displayName || await AsyncStorage.getItem("luma_name") || "";
-    const score = Number(await AsyncStorage.getItem("luma_score") || 50);
+    const name = displayName || await AsyncStorage.getItem("naelo_name") || "";
+    const score = Number(await AsyncStorage.getItem("naelo_score") || 50);
     await supabase.from("profiles").upsert({
       id: uid,
       name,
@@ -188,9 +188,9 @@ export default function AuthScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={styles.content}>
-        <Text style={styles.logo}>✨ Luma</Text>
+        <Text style={styles.logo}>✨ Naelo</Text>
         <Text style={styles.title}>
-          {mode === "register" ? "Створити акаунт" : "Увійти в Luma"}
+          {mode === "register" ? "Створити акаунт" : "Увійти в Naelo"}
         </Text>
         <Text style={styles.subtitle}>
           {mode === "register"
@@ -301,7 +301,7 @@ export default function AuthScreen() {
           {/* Privacy Policy */}
           <TouchableOpacity style={styles.privacyRow} onPress={() => router.push("/privacy")}>
             <Text style={styles.privacyText}>
-              Використовуючи Luma, ти погоджуєшся з{" "}
+              Використовуючи Naelo, ти погоджуєшся з{" "}
               <Text style={styles.privacyLink}>Політикою конфіденційності</Text>
             </Text>
           </TouchableOpacity>
