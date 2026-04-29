@@ -17,6 +17,7 @@ import {
   signInWithCredential,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
@@ -111,6 +112,27 @@ export default function AuthScreen() {
       router.replace("/home");
     } catch (e: any) {
       if (e.code !== "ERR_REQUEST_CANCELED") Alert.alert("Помилка", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Скидання пароля ─────────────────────────────────────────────
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert("Введи email", "Спочатку введи свій email у поле вище");
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      Alert.alert("Лист надіслано ✉️", `Перевір пошту ${email.trim()} — там буде посилання для скидання пароля`);
+    } catch (e: any) {
+      const msg =
+        e?.code === "auth/user-not-found" ? "Акаунт з таким email не знайдено"
+        : e?.code === "auth/invalid-email" ? "Неправильний формат email"
+        : e?.message ?? "Спробуй ще раз";
+      Alert.alert("Помилка", msg);
     } finally {
       setLoading(false);
     }
@@ -261,8 +283,27 @@ export default function AuthScreen() {
             }
           </TouchableOpacity>
 
+          {/* Забули пароль? — тільки в режимі login */}
+          {mode === "login" && (
+            <TouchableOpacity
+              style={styles.btnForgot}
+              onPress={handleForgotPassword}
+              disabled={loading}
+            >
+              <Text style={styles.forgotText}>Забули пароль?</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.btnSkip} onPress={() => router.replace("/home")}>
             <Text style={styles.skipText}>Пропустити поки що →</Text>
+          </TouchableOpacity>
+
+          {/* Privacy Policy */}
+          <TouchableOpacity style={styles.privacyRow} onPress={() => router.push("/privacy")}>
+            <Text style={styles.privacyText}>
+              Використовуючи Luma, ти погоджуєшся з{" "}
+              <Text style={styles.privacyLink}>Політикою конфіденційності</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -306,4 +347,11 @@ const styles = StyleSheet.create({
 
   btnSkip:         { paddingVertical: 14, alignItems: "center" },
   skipText:        { color: "rgba(255,255,255,0.3)", fontSize: 14 },
+
+  btnForgot:       { alignItems: "center", paddingVertical: 4 },
+  forgotText:      { color: "rgba(255,179,0,0.6)", fontSize: 13, textDecorationLine: "underline" },
+
+  privacyRow:      { paddingTop: 4, paddingBottom: 8, alignItems: "center" },
+  privacyText:     { color: "rgba(255,255,255,0.25)", fontSize: 12, textAlign: "center", lineHeight: 18 },
+  privacyLink:     { color: "rgba(255,179,0,0.5)", textDecorationLine: "underline" },
 });

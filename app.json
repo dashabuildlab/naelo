@@ -9,6 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
+      "package": "com.luma.app",
+      "targetSdkVersion": 35,
+      "compileSdkVersion": 35,
+      "minSdkVersion": 26,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -42,7 +46,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.luma.app"
     },
     "experiments": {
       "typedRoutes": true,

@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Animated, Dimensions, Easing, Image, Keyboard,
+  Animated, Dimensions, Easing, Image, Keyboard, Linking,
   StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from "react-native";
@@ -482,6 +482,16 @@ export default function OnboardingScreen() {
                 <TouchableOpacity style={styles.btnPrimary} onPress={finishOnboarding}>
                   <Text style={styles.btnText}>Увійти в Luma ✨</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.privacyConsent}
+                  onPress={() => router.push("/privacy")}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.privacyConsentText}>
+                    Натискаючи кнопку, ти погоджуєшся з{"\n"}
+                    <Text style={styles.privacyConsentLink}>Політикою конфіденційності Luma</Text>
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -567,6 +577,11 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.3 },
   btnText: { color: "#FFB300", fontSize: 16, fontWeight: "700" },
   hintText: { color: "rgba(255,179,0,0.5)", fontSize: 12 },
+
+  // Privacy consent
+  privacyConsent: { paddingTop: 2, paddingBottom: 4, alignItems: "center" },
+  privacyConsentText: { color: "rgba(255,255,255,0.22)", fontSize: 12, textAlign: "center", lineHeight: 18 },
+  privacyConsentLink: { color: "rgba(255,179,0,0.45)", textDecorationLine: "underline" },
 
   // Результат
   resultTitle: { color: "#fff", fontSize: 22, fontWeight: "700", textAlign: "center" },
