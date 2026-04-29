@@ -47,3 +47,4 @@ app-example
 *.tar.gz
 *.zip
 deploy_key
+expo-tunnel.bat
