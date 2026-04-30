@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
 
 import {
   GoogleAuthProvider,
@@ -22,12 +23,21 @@ import {
 import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
 
-import * as Google from "expo-auth-session/providers/google";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 
-WebBrowser.maybeCompleteAuthSession();
+// SHA-256 через вбудований crypto.subtle (Hermes SDK 54, не потребує native модулів)
+async function sha256hex(str: string): Promise<string> {
+  try {
+    const data = new TextEncoder().encode(str);
+    const buf  = await globalThis.crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return str; // fallback (Apple auth може не спрацювати без SHA-256)
+  }
+}
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -36,44 +46,43 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── Google OAuth ─────────────────────────────────────────────────
-  const [, response, promptGoogleAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  });
-
-  // Обробка відповіді від Google
-  const handleGoogleResponse = async () => {
-    if (!response) return;
-    if (response.type !== "success") {
-      if (response.type === "error") Alert.alert("Помилка", "Google Sign-In не вдалося");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      const result = await signInWithCredential(auth, credential);
-      await syncProfile(result.user.uid, result.user.displayName || "");
-      router.replace("/home");
-    } catch (e: any) {
-      Alert.alert("Помилка", e.message || "Google Sign-In не вдалося");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Запустити Google OAuth і одразу обробити
+  // ── Google OAuth (WebBrowser, без expo-auth-session/PKCE) ────────
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const result = await promptGoogleAsync();
-      if (result?.type === "success") {
-        const { id_token } = result.params;
-        const credential = GoogleAuthProvider.credential(id_token);
-        const fbResult = await signInWithCredential(auth, credential);
-        await syncProfile(fbResult.user.uid, fbResult.user.displayName || "");
-        router.replace("/home");
+      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
+      const nonce    = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const redirect = Linking.createURL("auth/callback");
+
+      const params = new URLSearchParams({
+        client_id:     clientId,
+        redirect_uri:  redirect,
+        response_type: "id_token",
+        scope:         "openid profile email",
+        nonce,
+      });
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
+        redirect,
+      );
+
+      if (result.type === "success" && result.url) {
+        const fragment = result.url.split("#")[1] ?? "";
+        const parsed: Record<string, string> = {};
+        fragment.split("&").forEach(p => {
+          const [k, v] = p.split("=");
+          if (k) parsed[k] = decodeURIComponent(v ?? "");
+        });
+
+        if (parsed.id_token) {
+          const credential = GoogleAuthProvider.credential(parsed.id_token);
+          const fbResult   = await signInWithCredential(auth, credential);
+          await syncProfile(fbResult.user.uid, fbResult.user.displayName || "");
+          router.replace("/home");
+        } else {
+          Alert.alert("Помилка", "Google не повернув токен. Перевір redirect URI у Google Console.");
+        }
       }
     } catch (e: any) {
       Alert.alert("Помилка", e.message || "Google Sign-In не вдалося");
@@ -86,13 +95,8 @@ export default function AuthScreen() {
   const handleAppleSignIn = async () => {
     setLoading(true);
     try {
-      const rawNonce =
-        Math.random().toString(36).slice(2) +
-        Math.random().toString(36).slice(2);
-      const hashedNonce = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        rawNonce,
-      );
+      const rawNonce    = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+      const hashedNonce = await sha256hex(rawNonce);
       const apple = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
