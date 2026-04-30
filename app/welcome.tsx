@@ -7,7 +7,7 @@ import {
   Animated, Dimensions, Easing, StatusBar, StyleSheet,
   Text, TouchableOpacity, View,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 import { useRouter } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
@@ -16,6 +16,12 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  const player = useVideoPlayer(require("../assets/screens/welcome.mp4"), p => {
+    p.loop   = true;
+    p.muted  = true;
+    p.play();
+  });
 
   useEffect(() => {
     Animated.parallel([
@@ -35,13 +41,11 @@ export default function WelcomeScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Відео фон */}
-      <Video
-        source={require("../assets/screens/welcome.mp4")}
+      <VideoView
+        player={player}
         style={styles.videoBg}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay
-        isLooping
-        isMuted
+        contentFit="cover"
+        nativeControls={false}
       />
 
       {/* Затемнення знизу */}

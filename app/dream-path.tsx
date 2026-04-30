@@ -7,7 +7,7 @@ import {
   Modal, ScrollView, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter, useFocusEffect } from "expo-router";
 import { supabase } from "../lib/supabase";
@@ -94,6 +94,12 @@ const GlowDot = ({ x, y, index }: { x: number; y: number; index: number }) => {
 export default function DreamPathScreen() {
   const router = useRouter();
   const [dreams, setDreams] = useState<Dream[]>([]);
+
+  const bgPlayer = useVideoPlayer(require("../assets/screens/dream-path.mp4"), p => {
+    p.loop  = true;
+    p.muted = true;
+    p.play();
+  });
   const [loading, setLoading] = useState(true);
   const [showAddDream, setShowAddDream] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
@@ -205,13 +211,11 @@ export default function DreamPathScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      <Video
-        source={require("../assets/screens/dream-path.mp4")}
+      <VideoView
+        player={bgPlayer}
         style={styles.absoluteBg}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay
-        isLooping
-        isMuted
+        contentFit="cover"
+        nativeControls={false}
       />
       {SPARKS.map((s) => <Spark key={s.id} {...s} />)}
       {PATH_DOTS.map((d, i) => <GlowDot key={i} x={d.x} y={d.y} index={i} />)}

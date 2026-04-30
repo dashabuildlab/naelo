@@ -7,7 +7,7 @@ import {
   StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -156,6 +156,18 @@ export default function OnboardingScreen() {
     }).start();
   }, []);
 
+  const player = useVideoPlayer(require("../assets/screens/onboarding.mp4"), p => {
+    p.loop  = true;
+    p.muted = true;
+    p.play();
+  });
+
+  // Зупиняємо відео на кроці результату (не потрібно)
+  useEffect(() => {
+    if (step >= 7) player.pause();
+    else if (player.status === "paused") player.play();
+  }, [step]);
+
   useEffect(() => {
     Animated.loop(Animated.sequence([
       Animated.timing(pulse, { toValue: 1.06, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -245,14 +257,12 @@ export default function OnboardingScreen() {
 
       {/* Відео монтується одразу і проявляється плавно коли готове */}
       <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoOpacity }]}>
-        <Video
-          source={require("../assets/screens/onboarding.mp4")}
+        <VideoView
+          player={player}
           style={styles.welcomeBg}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={step <= 6}
-          isLooping
-          isMuted
-          onReadyForDisplay={handleVideoReady}
+          contentFit="cover"
+          nativeControls={false}
+          onFirstFrameRender={handleVideoReady}
         />
       </Animated.View>
 
