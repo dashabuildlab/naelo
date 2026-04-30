@@ -15,7 +15,9 @@ app.get("/health", (req, res) => {
 });
 
 const aiRouter = require("./ai");
-app.use("/ai", aiRouter);
+app.use("/ai", aiRouter);        // прямий доступ: порт 8012/ai/chat
+app.use("/api/ai", aiRouter);    // через Caddy: mynaelo.com/api/ai/chat
+app.get("/api/health", (req, res) => res.json({ ok: true, app: "naelo-api", ts: Date.now() }));
 
 const { calculateScore } = require("./score");
 app.get("/user/score/:userId", async (req, res) => {
