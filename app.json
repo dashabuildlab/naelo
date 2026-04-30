@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
-      "package": "com.naelo.app",
+      "package": "com.mynaelo.app",
       "targetSdkVersion": 35,
       "compileSdkVersion": 35,
       "minSdkVersion": 26,
@@ -42,12 +42,24 @@
       ],
       "expo-secure-store",
       "expo-apple-authentication",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-video",
+      "./plugins/removeAudioPermission",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "targetSdkVersion": 35,
+            "compileSdkVersion": 35,
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.naelo.app"
+      "bundleIdentifier": "com.mynaelo.app"
     },
     "experiments": {
       "typedRoutes": true,
