@@ -19,6 +19,11 @@ app.use("/ai", aiRouter);        // прямий доступ: порт 8012/ai/
 app.use("/api/ai", aiRouter);    // через Caddy: mynaelo.com/api/ai/chat
 app.get("/api/health", (req, res) => res.json({ ok: true, app: "naelo-api", ts: Date.now() }));
 
+// Static pages via /api/ prefix (works with current Caddy routing)
+app.get("/api/privacy",        (req, res) => res.sendFile(path.join(__dirname, "../assets/privacy.html")));
+app.get("/api/policy",         (req, res) => res.sendFile(path.join(__dirname, "../assets/policy.html")));
+app.get("/api/delete-account", (req, res) => res.sendFile(path.join(__dirname, "../assets/delete-account.html")));
+
 const { calculateScore } = require("./score");
 app.get("/user/score/:userId", async (req, res) => {
   try {
