@@ -1,10 +1,14 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Static HTML pages (privacy, policy, delete-account)
+app.use(express.static(path.join(__dirname, "../assets")));
 
 app.get("/health", (req, res) => {
   res.json({ ok: true, app: "naelo-api", ts: Date.now() });

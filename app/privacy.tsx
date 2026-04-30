@@ -72,7 +72,7 @@ export default function PrivacyScreen() {
             База даних для зберігання профілю, check-in'ів, практик, мрій. Дані зберігаються в регіоні EU (Франкфурт). Supabase Privacy Policy: supabase.com/privacy
           </SubItem>
 
-          <SubItem title="Naelo AI API (naelo-api.auto-poster-ai.com)">
+          <SubItem title="Naelo AI API (mynaelo.com)">
             AI-асистент Naelo отримує контекст для відповідей: ім'я, score, стрік, мета, останні відповіді. Дані передаються по HTTPS і не зберігаються на сервері після генерації відповіді.
           </SubItem>
 
