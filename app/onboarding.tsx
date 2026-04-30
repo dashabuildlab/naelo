@@ -1,7 +1,7 @@
 // ~/luma/app/onboarding.tsx
 // Онбординг квіз — кроки 1-7 (персоналізація)
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Animated, Dimensions, Easing, Image, Keyboard, Linking,
   StatusBar, StyleSheet, Text,
@@ -145,9 +145,16 @@ export default function OnboardingScreen() {
   const [drainsText, setDrainsText] = useState("");
   const [score, setScore] = useState(0);
 
-  const pulse = useRef(new Animated.Value(1)).current;
-  const aura = useRef(new Animated.Value(0.08)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const pulse     = useRef(new Animated.Value(1)).current;
+  const aura      = useRef(new Animated.Value(0.08)).current;
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
+  const videoOpacity = useRef(new Animated.Value(0)).current;
+
+  const handleVideoReady = useCallback(() => {
+    Animated.timing(videoOpacity, {
+      toValue: 1, duration: 600, useNativeDriver: true,
+    }).start();
+  }, []);
 
   useEffect(() => {
     Animated.loop(Animated.sequence([
@@ -235,21 +242,23 @@ export default function OnboardingScreen() {
   return (
     <KeyboardScreen style={styles.container}>
       <StatusBar barStyle="light-content" />
+
+      {/* Відео монтується одразу і проявляється плавно коли готове */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoOpacity }]}>
+        <Video
+          source={require("../assets/screens/onboarding.mp4")}
+          style={styles.welcomeBg}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay={step <= 6}
+          isLooping
+          isMuted
+          onReadyForDisplay={handleVideoReady}
+        />
+      </Animated.View>
+
       <Stars />
 
-          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-
-            {/* Фон: відео для квізу */}
-            {step >= 1 && step <= 6 && (
-              <Video
-                source={require("../assets/screens/onboarding.mp4")}
-                style={styles.welcomeBg}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay
-                isLooping
-                isMuted
-              />
-            )}
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
 
             {/* Сфера прибрана — використовуємо фони */}
 
@@ -342,6 +351,7 @@ export default function OnboardingScreen() {
             {/* ============= КРОК 4 — Що турбує? ============= */}
             {step === 4 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <ProgressBar current={3} total={TOTAL_STEPS} />
                 <Text style={styles.questionTitle}>Що тебе зараз турбує?</Text>
                 <Text style={styles.questionSub}>Розкажи своїми словами</Text>
@@ -374,12 +384,14 @@ export default function OnboardingScreen() {
                 >
                   <Text style={styles.btnText}>Далі →</Text>
                 </TouchableOpacity>
+                </View>
               </View>
             )}
 
             {/* ============= КРОК 5 — Що дає енергію ============= */}
             {step === 5 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <ProgressBar current={4} total={TOTAL_STEPS} />
                 <Text style={styles.questionTitle}>Що тобі дає сили?</Text>
                 <Text style={styles.questionSub}>Розкажи що тебе заряджає</Text>
@@ -412,12 +424,14 @@ export default function OnboardingScreen() {
                 >
                   <Text style={styles.btnText}>Далі →</Text>
                 </TouchableOpacity>
+                </View>
               </View>
             )}
 
             {/* ============= КРОК 6 — Що забирає ============= */}
             {step === 6 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <ProgressBar current={5} total={TOTAL_STEPS} />
                 <Text style={styles.questionTitle}>А що висмоктує{"\n"}твою енергію?</Text>
                 <Text style={styles.questionSub}>Що тебе виснажує найбільше?</Text>
@@ -450,6 +464,7 @@ export default function OnboardingScreen() {
                 >
                   <Text style={styles.btnText}>Далі →</Text>
                 </TouchableOpacity>
+                </View>
               </View>
             )}
 
@@ -582,6 +597,17 @@ const styles = StyleSheet.create({
   privacyConsent: { paddingTop: 2, paddingBottom: 4, alignItems: "center" },
   privacyConsentText: { color: "rgba(255,255,255,0.22)", fontSize: 12, textAlign: "center", lineHeight: 18 },
   privacyConsentLink: { color: "rgba(255,179,0,0.45)", textDecorationLine: "underline" },
+
+  // Скляна картка — читабельність поверх відео (кроки 4-6)
+  glassCard: {
+    width: "100%", gap: 14,
+    backgroundColor: "rgba(10,8,18,0.72)",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
 
   // Результат
   resultTitle: { color: "#fff", fontSize: 22, fontWeight: "700", textAlign: "center" },
