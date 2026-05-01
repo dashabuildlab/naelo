@@ -1292,6 +1292,163 @@ sdk.dir=C\:\\Users\\dell\\AppData\\Local\\Android\\Sdk
 
 ---
 
+### `PluginError: react-native-purchases — Cannot find module 'react-native-purchases/app.plugin.js'`
+
+**Причина:** `react-native-purchases` v10 **не має** `app.plugin.js` — він використовує Expo autolinking. Якщо додати його в `plugins` масив `app.json`, Expo кидає помилку при запуску.
+
+**Рішення:** Видалити `"react-native-purchases"` з масиву `plugins` в `app.json`:
+
+```json
+// ❌ Неправильно:
+"plugins": ["react-native-purchases", ...]
+
+// ✅ Правильно — його тут НЕ має бути:
+"plugins": ["expo-notifications", "@react-native-firebase/app", ...]
+```
+
+`react-native-purchases` підключається автоматично через autolinking при нативному білді.
+
+---
+
+### `[Error: Native module RNFBAppModule not found]` — Firebase краш при старті в Expo Go
+
+**Причина:** `@react-native-firebase/*` містить нативний код. Статичний `import crashlytics from "@react-native-firebase/crashlytics"` на верхньому рівні файлу ламає Expo Go — нативний модуль не знаходиться при завантаженні.
+
+**Рішення:** Lazy-require з `isExpoGo` перевіркою в `lib/analytics.ts`:
+
+```typescript
+import Constants from "expo-constants";
+const isExpoGo = Constants.appOwnership === "expo";
+
+let _crashlytics: any = null;
+if (!isExpoGo) {
+  try { _crashlytics = require("@react-native-firebase/crashlytics").default; } catch {}
+}
+
+// Використовувати через геттер, НЕ через прямий імпорт:
+export function getCrashlyticsInstance() {
+  if (!_crashlytics) return { recordError: () => {}, log: () => {} };
+  try { return _crashlytics(); } catch { return { recordError: () => {} }; }
+}
+```
+
+В `app/_layout.tsx` — замінити прямий імпорт на геттер:
+```typescript
+// ❌ Було:
+import crashlytics from "@react-native-firebase/crashlytics";
+crashlytics().recordError(error);
+
+// ✅ Стало:
+import { getCrashlyticsInstance } from "../lib/analytics";
+getCrashlyticsInstance().recordError(error);
+```
+
+---
+
+### `[RC] init failed: Invalid API key` — RevenueCat краш в Expo Go
+
+**Причина:** `Purchases.configure()` і всі RevenueCat методи вимагають нативного модуля, який недоступний в Expo Go.
+
+**Рішення:** `isExpoGo` guard в `lib/purchases.ts` — застосований до **всіх** функцій:
+
+```typescript
+const isExpoGo = Constants.appOwnership === "expo";
+
+export async function initPurchases() {
+  if (isExpoGo) return;   // ← ранній вихід
+  Purchases.configure({ apiKey: ... });
+}
+
+export async function checkPremium() {
+  if (isExpoGo) return false;  // ← Expo Go = завжди free
+  // ... RevenueCat getCustomerInfo()
+}
+// Те саме для: getOfferings, purchasePackage, restorePurchases
+```
+
+---
+
+### Поле вводу в чаті зникає після першого повідомлення
+
+**Причина:** `ScrollView` без `style={{ flex: 1 }}` розтягується на весь доступний простір, виштовхуючи `inputRow` за межі екрану.
+
+**Рішення:** Додати `style={styles.messagesList}` до `ScrollView` з `flex: 1`:
+
+```typescript
+// app/chat.tsx
+<ScrollView ref={scrollRef} style={styles.messagesList} ...>
+
+const styles = StyleSheet.create({
+  messagesList: { flex: 1 },  // ← обов'язково!
+});
+```
+
+---
+
+### Клавіатура в чаті: 78px відступ між полем вводу та клавіатурою
+
+**Причина:** `BottomNav` (висота ~78px) знаходився **всередині** `KeyboardAvoidingView`, через що KAV враховував його висоту двічі.
+
+**Рішення:** Правильна структура — `BottomNav` **поза** KAV, з `keyboardVerticalOffset` рівним висоті BottomNav:
+
+```typescript
+// ✅ Правильна структура:
+<View style={styles.container}>
+  <KeyboardAvoidingView
+    style={styles.kav}
+    behavior={Platform.OS === "ios" ? "padding" : "height"}
+    keyboardVerticalOffset={Platform.OS === "ios" ? 78 : 0}  // висота BottomNav
+  >
+    <View style={styles.header}>...</View>
+    <ScrollView style={styles.messagesList}>...</ScrollView>  {/* flex: 1 */}
+    <View style={styles.inputRow}>...</View>  {/* без paddingBottom: 78 */}
+  </KeyboardAvoidingView>
+  <BottomNav active="chat" />  {/* ← поза KAV! */}
+</View>
+```
+
+---
+
+### Score = 0 в чаті хоча на головній показує реальне значення
+
+**Причина:** Supabase `getSession()` повертає `null` коли користувач авторизований тільки через Firebase. Код `session?.user?.id` давав `undefined` → запит до Supabase не виконувався → `score` залишався 0.
+
+**Рішення:** Firebase UID як fallback — застосовано до всіх екранів де є Supabase-запити:
+
+```typescript
+import { auth } from "../lib/firebase";
+
+// ✅ Правильний патерн:
+const { data: { session } } = await supabase.auth.getSession();
+const uid = session?.user?.id || auth.currentUser?.uid;
+if (!uid) return;
+```
+
+Застосовано в: `chat.tsx`, `home.tsx`, `my-path.tsx`, `pharmacy.tsx`.
+
+---
+
+### Емодзі в інтерфейсі замість іконок
+
+**Причина:** Весь UI використовував Unicode-емодзі (🔥, ✨, ⚡, ✅ тощо) замість векторних іконок.
+
+**Рішення:** Глобальна заміна на `Ionicons` з `@expo/vector-icons` по всіх екранах:
+
+```typescript
+import { Ionicons } from "@expo/vector-icons";
+
+// Замість: <Text>🔥</Text>
+<Ionicons name="flame" size={20} color={COLORS.primary} />
+
+// Замість: emoji в об'єктах даних (практики, поради тощо)
+// type Practice = { emoji: string }  →  { icon: string }
+// practice.emoji  →  <Ionicons name={practice.icon as any} size={28} />
+```
+
+Файли оновлені: `home.tsx`, `my-path.tsx`, `pharmacy.tsx`, `chat.tsx`, `onboarding.tsx`, `auth.tsx`, `welcome.tsx`, `dream-path.tsx`.
+
+---
+
 ### Gradle білд: команди для Google Play (AAB)
 
 **Повний порядок дій для нового білду:**
@@ -1466,7 +1623,7 @@ Authorized redirect URIs:
 | — | Квітень 2026 | Fix: Package name `com.mynaelo.app`, видалення `RECORD_AUDIO` |
 | — | Квітень 2026 | Додано лендінг mynaelo.com + HTML сторінки (privacy/policy/delete-account) |
 | 1.0.2 | Травень 2026 | Firebase Crashlytics/Analytics/Perf; підтримка iPad (CONTENT_MAX_W); Settings screen; UI cleanup (Ionicons, без емодзі) |
-| 1.1.0 | Травень 2026 | Push-сповіщення (expo-notifications, DAILY trigger); Повна статистика (stats.tsx, SVG); RevenueCat підписка (paywall.tsx, purchases.ts); App Store конфіг (eas.json, privacyManifests); premium gates (pharmacy 3/day, chat 7→30 днів) |
+| 1.1.0 | Травень 2026 | Push-сповіщення (expo-notifications, DAILY trigger); Повна статистика (stats.tsx, SVG); RevenueCat підписка (paywall.tsx, purchases.ts); App Store конфіг (eas.json, privacyManifests); premium gates (pharmacy 3/day, chat 7→30 днів); Fix: react-native-purchases видалено з plugins (autolinking); Fix: Firebase lazy-require — безпечно в Expo Go; Fix: RevenueCat isExpoGo guard у всіх функціях; Fix: chat keyboard (KAV+BottomNav патерн, flex:1 на ScrollView); Fix: score=0 в чаті (Firebase UID fallback); Fix: кнопку назад видалено з чату; Заміна всіх емодзі → Ionicons по 8 екранах; Іконка застосунку (flame+lighthouse); notification-icon (96×96 white) |
 
 ---
 
