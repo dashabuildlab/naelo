@@ -153,7 +153,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 78 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <View style={styles.header}>
           <View style={styles.headerCenter}>
@@ -223,7 +223,7 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  kav: { flex: 1 },
+  kav: { flex: 1, marginBottom: 90 },
   header: { alignItems: "center", paddingHorizontal: CONTENT_PAD_H, paddingTop: SIZES.paddingTop, paddingBottom: 12, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
   headerCenter: { alignItems: "center" },
   headerTitle: { color: COLORS.text, fontSize: SIZES.fontLG, fontWeight: "700" },
