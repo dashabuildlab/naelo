@@ -12,6 +12,13 @@ import type { PurchasesPackage } from "react-native-purchases";
 import { getOfferings, purchasePackage, restorePurchases } from "../lib/purchases";
 import { COLORS, SIZES, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
 
+// ── Mock пакети для Expo Go / скріншотів ─────────────────────────
+const MOCK_PACKAGES = [
+  { identifier: "weekly",  packageType: "WEEKLY",  product: { title: "Тижневий", price: 1.99, priceString: "$1.99",  currencyCode: "USD" } },
+  { identifier: "monthly", packageType: "MONTHLY", product: { title: "Місячний", price: 4.99, priceString: "$4.99",  currencyCode: "USD" } },
+  { identifier: "annual",  packageType: "ANNUAL",  product: { title: "Річний",   price: 29.99, priceString: "$29.99", currencyCode: "USD" } },
+];
+
 // ── Описи планів ─────────────────────────────────────────────────
 const FREE_FEATURES = [
   "Щоденні чекіни та Вогник душі",
@@ -41,10 +48,11 @@ export default function PaywallScreen() {
   const loadOfferings = async () => {
     const o = await getOfferings();
     const pkgs: PurchasesPackage[] = o?.current?.availablePackages ?? [];
-    setPackages(pkgs);
-    // Обирати річний за замовчуванням якщо є
-    const annual = pkgs.find(p => p.packageType === "ANNUAL");
-    setSelected(annual ?? pkgs[0] ?? null);
+    // Якщо RevenueCat недоступний (Expo Go) — показуємо mock для скріншотів
+    const finalPkgs = pkgs.length > 0 ? pkgs : (MOCK_PACKAGES as any);
+    setPackages(finalPkgs);
+    const annual = finalPkgs.find((p: any) => p.packageType === "ANNUAL");
+    setSelected(annual ?? finalPkgs[0] ?? null);
     setLoading(false);
   };
 
@@ -163,7 +171,7 @@ export default function PaywallScreen() {
                       {isSelected && <View style={styles.radioDot} />}
                     </View>
                     <View>
-                      <Text style={styles.pkgName}>{annual ? "Рік" : "Місяць"}</Text>
+                      <Text style={styles.pkgName}>{annual ? "Рік" : pkg.packageType === "WEEKLY" ? "Тиждень" : "Місяць"}</Text>
                       {monthlyPrice && <Text style={styles.pkgSub}>{monthlyPrice}</Text>}
                     </View>
                   </View>
