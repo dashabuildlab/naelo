@@ -351,7 +351,7 @@ export default function HomeScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
         {/* Простір для сфери */}
-        <View style={{ height: height * 0.22 }} />
+        <View style={{ height: height * 0.14 }} />
 
         {/* Вогник душі */}
         <View style={styles.scoreBlock}>
@@ -432,7 +432,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
 
       <BottomNav active="home" />
@@ -445,11 +445,11 @@ const styles = StyleSheet.create({
   absoluteBg: { position: "absolute", top: 0, left: 0, width, height: width * 1.16 },
 
   // Сфера
-  glowCore: { position: "absolute", width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.glow, top: height * 0.248 + 17 - 20, left: (width - 40) / 2 + width * 0.01 },
-  sphereTap: { position: "absolute", top: height * 0.248 + 17 - 110, left: (width - 220) / 2, width: 220, height: 220, alignItems: "center", justifyContent: "center", zIndex: 10 },
-  pulseRing1: { position: "absolute", width: 70, height: 70, borderRadius: 35, borderWidth: 1.5, borderColor: COLORS.ring1, top: height * 0.248 + 17 - 35, left: (width - 70) / 2 + width * 0.01 },
-  pulseRing2: { position: "absolute", width: 130, height: 130, borderRadius: 65, borderWidth: 1, borderColor: COLORS.ring2, top: height * 0.248 + 17 - 65, left: (width - 130) / 2 + width * 0.01 },
-  pulseRing3: { position: "absolute", width: 200, height: 200, borderRadius: 100, borderWidth: 0.8, borderColor: COLORS.ring3, top: height * 0.248 + 17 - 100, left: (width - 200) / 2 + width * 0.01 },
+  glowCore: { position: "absolute", width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.glow, top: height * 0.17 - 20, left: (width - 40) / 2 },
+  sphereTap: { position: "absolute", top: height * 0.17 - 110, left: (width - 220) / 2, width: 220, height: 220, alignItems: "center", justifyContent: "center", zIndex: 10 },
+  pulseRing1: { position: "absolute", width: 70, height: 70, borderRadius: 35, borderWidth: 1.5, borderColor: COLORS.ring1, top: height * 0.17 - 35, left: (width - 70) / 2 },
+  pulseRing2: { position: "absolute", width: 130, height: 130, borderRadius: 65, borderWidth: 1, borderColor: COLORS.ring2, top: height * 0.17 - 65, left: (width - 130) / 2 },
+  pulseRing3: { position: "absolute", width: 200, height: 200, borderRadius: 100, borderWidth: 0.8, borderColor: COLORS.ring3, top: height * 0.17 - 100, left: (width - 200) / 2 },
 
   // Хедер
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, paddingTop: SIZES.paddingTop, paddingBottom: 8, zIndex: 10 },
@@ -461,14 +461,14 @@ const styles = StyleSheet.create({
   scrollInner: { alignItems: "center", paddingHorizontal: CONTENT_PAD_H },
 
   // Вогник душі
-  scoreBlock: { alignItems: "center", marginBottom: 16 },
-  scoreLabel: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600", letterSpacing: 1.5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, overflow: "hidden", marginBottom: 4 },
-  scoreValue: { fontSize: 52, fontWeight: "800", letterSpacing: 1 },
-  streakRow: { marginTop: 4 },
+  scoreBlock: { alignItems: "center", marginBottom: 10 },
+  scoreLabel: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "600", letterSpacing: 1.5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, overflow: "hidden", marginBottom: 2 },
+  scoreValue: { fontSize: 44, fontWeight: "800", letterSpacing: 1 },
+  streakRow: { marginTop: 2 },
   streakText: { color: COLORS.primary, fontSize: 13, fontWeight: "600" },
 
   // Порада
-  adviceCard: { width: "100%", maxWidth: CONTENT_MAX_W, paddingVertical: 12, paddingHorizontal: 16, borderRadius: SIZES.radius, backgroundColor: "rgba(255,179,0,0.08)", borderWidth: 1, borderColor: "rgba(255,179,0,0.15)", marginBottom: 16 },
+  adviceCard: { width: "100%", maxWidth: CONTENT_MAX_W, paddingVertical: 8, paddingHorizontal: 14, borderRadius: SIZES.radius, backgroundColor: "rgba(255,179,0,0.08)", borderWidth: 1, borderColor: "rgba(255,179,0,0.15)", marginBottom: 10 },
   adviceText: { color: "rgba(255,255,255,0.75)", fontSize: 14, textAlign: "center", lineHeight: 20 },
 
   // Подяка
@@ -476,11 +476,11 @@ const styles = StyleSheet.create({
   thankYouText: { color: COLORS.primary, fontSize: 16, fontWeight: "700" },
 
   // Питання дня
-  questionCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SIZES.radiusLarge, padding: 20, gap: 14 },
-  questionTitle: { color: COLORS.text, fontSize: 18, fontWeight: "700" },
+  questionCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SIZES.radiusLarge, padding: 14, gap: 10 },
+  questionTitle: { color: COLORS.text, fontSize: 16, fontWeight: "700" },
 
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
-  questionInput: { flex: 1, minHeight: 56, maxHeight: 120, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 16, lineHeight: 22 },
+  questionInput: { flex: 1, minHeight: 46, maxHeight: 100, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 15, lineHeight: 20 },
 
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
   sendBtnDisabled: { backgroundColor: "rgba(255,255,255,0.1)" },
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   hintText: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
 
   // Вже відповів
-  answeredCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(0,0,0,0.4)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: SIZES.radiusLarge, padding: 24, alignItems: "center", gap: 10 },
+  answeredCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(0,0,0,0.4)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: SIZES.radiusLarge, padding: 16, alignItems: "center", gap: 8 },
   answeredTitle: { color: COLORS.text, fontSize: 17, fontWeight: "600" },
   answeredSub: { color: "rgba(255,255,255,0.5)", fontSize: 14 },
   chatBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 12, borderRadius: SIZES.radiusLarge, borderWidth: 1, borderColor: COLORS.primaryGlow, backgroundColor: COLORS.primaryFaint },
