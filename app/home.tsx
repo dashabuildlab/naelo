@@ -343,6 +343,10 @@ export default function HomeScreen() {
       {/* Хедер */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Привіт, {userName || "друже"}</Text>
+        <TouchableOpacity style={styles.premiumBtn} onPress={() => router.push("/paywall")} activeOpacity={0.8}>
+          <Ionicons name="diamond" size={16} color={COLORS.primary} />
+          <Text style={styles.premiumBtnText}>Premium</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
@@ -450,6 +454,8 @@ const styles = StyleSheet.create({
   // Хедер
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, paddingTop: SIZES.paddingTop, paddingBottom: 8, zIndex: 10 },
   headerTitle: { color: COLORS.text, fontSize: SIZES.fontLG, fontWeight: "600", letterSpacing: 0.3, flex: 1 },
+  premiumBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,179,0,0.12)", borderWidth: 1, borderColor: "rgba(255,179,0,0.3)", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  premiumBtnText: { color: COLORS.primary, fontSize: 12, fontWeight: "700" },
   // Скрол
   scroll: { flex: 1 },
   scrollInner: { alignItems: "center", paddingHorizontal: CONTENT_PAD_H },
