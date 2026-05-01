@@ -53,14 +53,16 @@ export default function WelcomeScreen() {
 
       {/* Контент */}
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <Text style={styles.title}>Привіт! Я Naelo ✨</Text>
-        <Text style={styles.subtitle}>
-          Я допоможу тобі бачити свою енергію{"\n"}і покращувати її щодня
-        </Text>
+        <View style={styles.contentInner}>
+          <Text style={styles.title}>Привіт! Я Naelo ✨</Text>
+          <Text style={styles.subtitle}>
+            Я допоможу тобі бачити свою енергію{"\n"}і покращувати її щодня
+          </Text>
 
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleStart}>
-          <Text style={styles.btnText}>Почати →</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleStart}>
+            <Text style={styles.btnText}>Почати →</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </View>
   );
@@ -76,6 +78,9 @@ const styles = StyleSheet.create({
   content: {
     position: "absolute", bottom: height * 0.30, left: 0, right: 0,
     alignItems: "center", paddingHorizontal: 30,
+  },
+  contentInner: {
+    width: "100%", maxWidth: 460, alignItems: "center",
   },
   title: {
     color: "#fff", fontSize: 30, fontWeight: "700",

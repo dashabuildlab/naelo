@@ -1,5 +1,5 @@
 // ~/luma/app/dream-path.tsx
-// Навігатор мрії — Supabase + маяк, кроки, фільтр істинності
+// Навігатор мрії — API (PostgreSQL) + маяк, кроки, фільтр істинності
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
@@ -11,9 +11,13 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter, useFocusEffect } from "expo-router";
 import { supabase } from "../lib/supabase";
-import { COLORS, SIZES, SHARED, SHADOWS } from "../lib/theme";
+import { auth } from "../lib/firebase";
+import { COLORS, SIZES, SHARED, SHADOWS, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
+import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
-import Header from "../lib/Header";
+import { logScreen, logEvent } from "../lib/analytics";
+
+const API_URL = "https://mynaelo.com/api";
 
 const { width, height } = Dimensions.get("window");
 
@@ -118,6 +122,8 @@ export default function DreamPathScreen() {
   const glowAnim = useRef(new Animated.Value(0.3)).current;
   const glowCore = useRef(new Animated.Value(0.5)).current;
 
+  useEffect(() => { logScreen("DreamPath"); }, []);
+
   useFocusEffect(useCallback(() => { loadDreams(); }, []));
 
   useEffect(() => {
@@ -135,47 +141,80 @@ export default function DreamPathScreen() {
     ])).start();
   }, []);
 
+  const getUserId = async (): Promise<string | null> => {
+    // Спочатку Firebase, потім Supabase
+    if (auth.currentUser?.uid) return auth.currentUser.uid;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id || null;
+  };
+
   const loadDreams = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id || null;
+      const uid = await getUserId();
       setUserId(uid);
       if (!uid) { setDreams([]); setLoading(false); return; }
-      const { data: dreamsData } = await supabase.from("dreams").select("*").eq("user_id", uid).order("created_at", { ascending: true });
-      if (!dreamsData || dreamsData.length === 0) { setDreams([]); setLoading(false); return; }
-      const dreamIds = dreamsData.map((d) => d.id);
-      const { data: stepsData } = await supabase.from("dream_steps").select("*").in("dream_id", dreamIds).order("sort_order", { ascending: true });
-      const stepsMap: Record<string, Step[]> = {};
-      stepsData?.forEach((s) => {
-        if (!stepsMap[s.dream_id]) stepsMap[s.dream_id] = [];
-        stepsMap[s.dream_id].push({ id: s.id, title: s.title, done: s.done });
-      });
-      setDreams(dreamsData.map((d: any) => ({ id: d.id, title: d.title, why: d.why || "", deadline: d.deadline || "", steps: stepsMap[d.id] || [], verified: d.verified || false })));
+      const res = await fetch(`${API_URL}/dreams?user_id=${encodeURIComponent(uid)}`);
+      const json = await res.json();
+      if (json.dreams) {
+        setDreams(json.dreams.map((d: any) => ({
+          id: d.id, title: d.title, why: d.why || "", deadline: d.deadline || "",
+          steps: (d.steps || []).map((s: any) => ({ id: s.id, title: s.title, done: s.done })),
+          verified: d.verified || false,
+        })));
+      }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   const addDream = async () => {
     if (!newDreamTitle.trim() || !userId) return;
-    const { data } = await supabase.from("dreams").insert({ user_id: userId, title: newDreamTitle.trim(), why: newDreamWhy.trim(), deadline: newDreamDeadline.trim() }).select().single();
-    if (data) setDreams((prev) => [...prev, { id: data.id, title: data.title, why: data.why || "", deadline: data.deadline || "", steps: [], verified: false }]);
+    try {
+      const res = await fetch(`${API_URL}/dreams`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, title: newDreamTitle.trim(), why: newDreamWhy.trim() || null, deadline: newDreamDeadline.trim() || null }),
+      });
+      const json = await res.json();
+      if (json.dream) {
+        setDreams((prev) => [...prev, { id: json.dream.id, title: json.dream.title, why: newDreamWhy.trim(), deadline: newDreamDeadline.trim(), steps: [], verified: false }]);
+      }
+    } catch (e) { console.error(e); }
     setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setShowAddDream(false);
   };
 
   const addStep = async (dreamId: string) => {
     if (!newStepTitle.trim() || !userId) return;
-    const dream = dreams.find((d) => d.id === dreamId);
-    const { data } = await supabase.from("dream_steps").insert({ dream_id: dreamId, user_id: userId, title: newStepTitle.trim(), sort_order: dream ? dream.steps.length : 0 }).select().single();
-    if (data) setDreams((prev) => prev.map((d) => d.id === dreamId ? { ...d, steps: [...d.steps, { id: data.id, title: data.title, done: false }] } : d));
+    const dream = dreams.find(d => d.id === dreamId);
+    try {
+      const res = await fetch(`${API_URL}/dreams/steps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dream_id: dreamId, user_id: userId, title: newStepTitle.trim(), sort_order: dream ? dream.steps.length : 0 }),
+      });
+      const json = await res.json();
+      if (json.step) {
+        setDreams(prev => prev.map(d => d.id === dreamId
+          ? { ...d, steps: [...d.steps, { id: json.step.id, title: json.step.title, done: false }] }
+          : d
+        ));
+      }
+    } catch (e) { console.error(e); }
     setNewStepTitle(""); setShowAddStep(null);
   };
 
   const toggleStep = async (dreamId: string, stepId: string) => {
-    const step = dreams.find((d) => d.id === dreamId)?.steps.find((s) => s.id === stepId);
+    const step = dreams.find(d => d.id === dreamId)?.steps.find(s => s.id === stepId);
     if (!step) return;
     const newDone = !step.done;
-    setDreams((prev) => prev.map((d) => d.id === dreamId ? { ...d, steps: d.steps.map((s) => s.id === stepId ? { ...s, done: newDone } : s) } : d));
-    await supabase.from("dream_steps").update({ done: newDone }).eq("id", stepId);
+    setDreams(prev => prev.map(d => d.id === dreamId
+      ? { ...d, steps: d.steps.map(s => s.id === stepId ? { ...s, done: newDone } : s) }
+      : d
+    ));
+    fetch(`${API_URL}/dreams/steps/${stepId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: newDone }),
+    }).catch(console.error);
   };
 
   const startFilter = (dream: Dream) => { setSelectedDream(dream); setFilterAnswers([]); setCurrentFilterQ(0); setShowFilter(true); };
@@ -187,8 +226,12 @@ export default function DreamPathScreen() {
     else {
       const allYes = newAnswers.every((a) => a);
       if (selectedDream) {
-        setDreams((prev) => prev.map((d) => d.id === selectedDream.id ? { ...d, verified: allYes } : d));
-        await supabase.from("dreams").update({ verified: allYes }).eq("id", selectedDream.id);
+        setDreams(prev => prev.map(d => d.id === selectedDream.id ? { ...d, verified: allYes } : d));
+        fetch(`${API_URL}/dreams/${selectedDream.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ verified: allYes }),
+        }).catch(console.error);
       }
       setShowFilter(false);
     }
@@ -198,9 +241,8 @@ export default function DreamPathScreen() {
     Alert.alert("Видалити мрію?", "Мрія та всі її кроки будуть видалені", [
       { text: "Скасувати", style: "cancel" },
       { text: "Видалити", style: "destructive", onPress: async () => {
-        setDreams((prev) => prev.filter((d) => d.id !== dreamId));
-        await supabase.from("dream_steps").delete().eq("dream_id", dreamId);
-        await supabase.from("dreams").delete().eq("id", dreamId);
+        setDreams(prev => prev.filter(d => d.id !== dreamId));
+        fetch(`${API_URL}/dreams/${dreamId}`, { method: "DELETE" }).catch(console.error);
       }},
     ]);
   };
@@ -221,8 +263,6 @@ export default function DreamPathScreen() {
       {PATH_DOTS.map((d, i) => <GlowDot key={i} x={d.x} y={d.y} index={i} />)}
       <Animated.View style={[styles.glowCore, { opacity: glowCore }]} />
       <Animated.View style={[styles.pulseRing, { opacity: glowAnim, transform: [{ scale: pulseAnim }] }]} />
-
-      <Header title="Навігатор мрії" absolute />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={{ height: dreams.length > 0 ? height * 0.32 : height * 0.58 }} />
@@ -246,8 +286,18 @@ export default function DreamPathScreen() {
                   <Text style={styles.deleteBtn}>✕</Text>
                 </TouchableOpacity>
               </View>
-              {dream.why ? <Text style={styles.dreamWhy}>💡 {dream.why}</Text> : null}
-              {dream.deadline ? <Text style={styles.dreamDeadline}>📅 {dream.deadline}</Text> : null}
+              {dream.why ? (
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                  <Ionicons name="bulb-outline" size={15} color={COLORS.textSoft} style={{ marginTop: 1 }} />
+                  <Text style={[styles.dreamWhy, { flex: 1, marginBottom: 0 }]}>{dream.why}</Text>
+                </View>
+              ) : null}
+              {dream.deadline ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <Ionicons name="calendar-outline" size={15} color="rgba(255,179,0,0.7)" />
+                  <Text style={[styles.dreamDeadline, { marginBottom: 0 }]}>{dream.deadline}</Text>
+                </View>
+              ) : null}
               {dream.steps.length > 0 && (
                 <View style={styles.progressRow}>
                   <View style={styles.progressBar}>
@@ -269,9 +319,16 @@ export default function DreamPathScreen() {
                   <Text style={styles.actionBtnText}>+ Крок</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.actionBtn, dream.verified && styles.actionBtnVerified]} onPress={() => startFilter(dream)}>
-                  <Text style={[styles.actionBtnText, dream.verified && { color: COLORS.success }]}>
-                    {dream.verified ? "✓ Перевірено" : "🔍 Фільтр істинності"}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons
+                      name={dream.verified ? "checkmark-circle" : "filter-outline"}
+                      size={14}
+                      color={dream.verified ? COLORS.success : COLORS.textMuted}
+                    />
+                    <Text style={[styles.actionBtnText, dream.verified && { color: COLORS.success }]}>
+                      {dream.verified ? "Перевірено" : "Фільтр"}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
               {showAddStep === dream.id && (
@@ -287,11 +344,17 @@ export default function DreamPathScreen() {
 
           {!loading && (
             <TouchableOpacity style={styles.addDreamBtn} onPress={() => setShowAddDream(true)}>
-              <Text style={styles.addDreamBtnText}>🏮 Додати мрію</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="star-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.addDreamBtnText}>Додати мрію</Text>
+              </View>
             </TouchableOpacity>
           )}
           {!userId && !loading && (
-            <Text style={styles.noAuthHint}>💡 Увійди в акаунт щоб зберігати мрії в хмарі</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", marginTop: 16 }}>
+              <Ionicons name="information-circle-outline" size={14} color={COLORS.textFaint} />
+              <Text style={styles.noAuthHint}>Увійди в акаунт щоб зберігати мрії в хмарі</Text>
+            </View>
           )}
         </View>
         <View style={{ height: 20 }} />
@@ -301,7 +364,10 @@ export default function DreamPathScreen() {
       <Modal visible={showAddDream} animationType="slide" transparent onRequestClose={() => setShowAddDream(false)}>
         <KeyboardAwareScrollView contentContainerStyle={SHARED.modalOverlay as any} bottomOffset={20} keyboardShouldPersistTaps="handled">
           <View style={SHARED.modalContainer as any}>
-            <Text style={modal.title}>🏮 Нова мрія</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 8 }}>
+              <Ionicons name="star-outline" size={22} color={COLORS.primary} />
+              <Text style={modal.title}>Нова мрія</Text>
+            </View>
             <TextInput style={SHARED.input} placeholder="Яка твоя мрія?" placeholderTextColor={COLORS.textPlaceholder} value={newDreamTitle} onChangeText={setNewDreamTitle} autoFocus />
             <TextInput style={SHARED.input} placeholder="Чому ця мрія важлива для тебе?" placeholderTextColor={COLORS.textPlaceholder} value={newDreamWhy} onChangeText={setNewDreamWhy} multiline />
             <TextInput style={SHARED.input} placeholder="Коли хочеш досягти? (напр. 2026)" placeholderTextColor={COLORS.textPlaceholder} value={newDreamDeadline} onChangeText={setNewDreamDeadline} />
@@ -321,7 +387,10 @@ export default function DreamPathScreen() {
       <Modal visible={showFilter} animationType="fade" transparent onRequestClose={() => setShowFilter(false)}>
         <View style={SHARED.modalOverlayCenter as any}>
           <View style={SHARED.modalContainerCenter as any}>
-            <Text style={filter.badge}>🔍 Фільтр істинності</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" }}>
+              <Ionicons name="filter-outline" size={18} color={COLORS.primary} />
+              <Text style={filter.badge}>Фільтр істинності</Text>
+            </View>
             <Text style={filter.progress}>{currentFilterQ + 1} / {TRUTH_FILTER.length}</Text>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${((currentFilterQ) / TRUTH_FILTER.length) * 100}%` }]} />
@@ -350,8 +419,8 @@ export default function DreamPathScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgDark },
   absoluteBg: { position: "absolute", top: 0, left: 0, width, height: width * 1.07 },
-  scroll: { paddingHorizontal: SIZES.paddingH, paddingBottom: 100 },
-  contentBackdrop: { backgroundColor: "rgba(10,8,18,0.8)", borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, borderColor: "rgba(255,179,0,0.15)", paddingHorizontal: SIZES.paddingH, paddingTop: 24, paddingBottom: 10, marginHorizontal: -SIZES.paddingH },
+  scroll: { paddingHorizontal: CONTENT_PAD_H, paddingBottom: 100 },
+  contentBackdrop: { backgroundColor: "rgba(10,8,18,0.8)", borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, borderColor: "rgba(255,179,0,0.15)", paddingHorizontal: SIZES.paddingH, paddingTop: 24, paddingBottom: 10, marginHorizontal: -SIZES.paddingH, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
   glowCore: { position: "absolute", width: 35, height: 35, borderRadius: 18, backgroundColor: COLORS.glow, top: "14%", left: "51%", marginLeft: -17, opacity: 0.7 },
   pulseRing: { position: "absolute", width: 60, height: 60, borderRadius: 30, borderWidth: 1, borderColor: COLORS.ring1, top: "12.5%", left: "51%", marginLeft: -30 },
   lighthouseTitle: { color: COLORS.primary, fontSize: 20, fontWeight: "700", textAlign: "center" },
@@ -383,11 +452,11 @@ const styles = StyleSheet.create({
   addStepBtnText: { color: COLORS.primary, fontWeight: "600", fontSize: SIZES.fontSM },
   addDreamBtn: { paddingVertical: 16, borderRadius: SIZES.radiusLarge, borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft, alignItems: "center", marginTop: 8 },
   addDreamBtnText: { color: COLORS.primary, fontSize: SIZES.fontMD, fontWeight: "700" },
-  noAuthHint: { color: COLORS.textFaint, fontSize: 12, textAlign: "center", marginTop: 16 },
+  noAuthHint: { color: COLORS.textFaint, fontSize: 12, textAlign: "center" },
 });
 
 const modal = StyleSheet.create({
-  title: { color: COLORS.text, fontSize: 20, fontWeight: "700", textAlign: "center", marginBottom: 8 },
+  title: { color: COLORS.text, fontSize: 20, fontWeight: "700", textAlign: "center" },
   btns: { gap: 12, marginTop: 8 },
   btnCancel: { color: COLORS.textMuted, fontSize: 14, textAlign: "center" },
 });

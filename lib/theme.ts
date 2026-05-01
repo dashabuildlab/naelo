@@ -1,7 +1,7 @@
 // ~/luma/app/luma/lib/theme.ts
 // Єдине джерело стилів для всього додатку
 
-import { Dimensions } from "react-native";
+import { Dimensions, useWindowDimensions } from "react-native";
 
 const { width, height } = Dimensions.get("window");
 
@@ -276,9 +276,36 @@ export const SHARED = {
     borderRadius: 24,
     padding: 28,
     width: "100%" as const,
+    maxWidth: 520 as const,
     gap: 16,
   },
 } as const;
+
+// ============= ПЛАНШЕТ =============
+/** true, якщо поточний пристрій — iPad (ширина ≥ 600pt) */
+export const isTablet = SIZES.width >= 600;
+
+/** Максимальна ширина контентної колонки: 680pt на iPad, повна ширина на телефоні */
+export const CONTENT_MAX_W = isTablet
+  ? Math.min(680, Math.round(SIZES.width * 0.82))
+  : SIZES.width;
+
+/** Горизонтальні відступи, що центрують контент на iPad */
+export const CONTENT_PAD_H = isTablet
+  ? Math.round((SIZES.width - CONTENT_MAX_W) / 2)
+  : 20;
+
+/**
+ * Хук реактивного лейауту — повертає поточні розміри вікна + прапор планшету.
+ * Використовуй у компонентах, де потрібна реакція на зміни (напр., модальні діалоги).
+ */
+export function useLayout() {
+  const { width, height } = useWindowDimensions();
+  const tablet = width >= 600;
+  const maxW = tablet ? Math.min(680, Math.round(width * 0.82)) : width;
+  const padH = tablet ? Math.round((width - maxW) / 2) : 20;
+  return { width, height, tablet, maxW, padH };
+}
 
 // ============= УТИЛІТИ =============
 export const scoreColor = (score: number) =>

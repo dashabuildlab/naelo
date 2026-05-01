@@ -10,9 +10,12 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
-import { COLORS, SIZES, SHARED, scoreColor } from "../lib/theme";
+import { auth } from "../lib/firebase";
+import { COLORS, SIZES, SHARED, scoreColor, CONTENT_PAD_H, CONTENT_MAX_W, isTablet } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 import KeyboardScreen from "../lib/KeyboardScreen";
+import { Ionicons } from "@expo/vector-icons";
+import { logScreen, logEvent } from "../lib/analytics";
 
 const { width, height } = Dimensions.get("window");
 
@@ -67,11 +70,12 @@ const DAILY_QUESTIONS = [
 ];
 
 // --- Поради (поки статичні, потім AI) ---
-const getAdvice = (score: number, userName: string): { emoji: string; text: string } => {
-  if (score >= 75) return { emoji: "🔥", text: `${userName}, твій вогник палає! Так тримати` };
-  if (score >= 55) return { emoji: "💡", text: `Вогник стабільний. Одна маленька дія — і буде яскравіше` };
-  if (score >= 35) return { emoji: "🌱", text: `Вогник трохи притух. Зроби сьогодні щось лише для себе` };
-  return { emoji: "💛", text: `Я поруч. Розкажи що відбувається — разом розпалимо` };
+type Advice = { icon: string; text: string };
+const getAdvice = (score: number, userName: string): Advice => {
+  if (score >= 75) return { icon: "flame",         text: `${userName}, твій вогник палає! Так тримати` };
+  if (score >= 55) return { icon: "bulb-outline",  text: `Вогник стабільний. Одна маленька дія — і буде яскравіше` };
+  if (score >= 35) return { icon: "leaf-outline",  text: `Вогник трохи притух. Зроби сьогодні щось лише для себе` };
+  return           { icon: "heart-outline",        text: `Я поруч. Розкажи що відбувається — разом розпалимо` };
 };
 
 export default function HomeScreen() {
@@ -79,6 +83,7 @@ export default function HomeScreen() {
 
   const [userName, setUserName] = useState("");
   const [score, setScore] = useState(50);
+  const [streak, setStreak] = useState(0);
   const [answeredToday, setAnsweredToday] = useState(false);
   const [answerText, setAnswerText] = useState("");
   const [showThankYou, setShowThankYou] = useState(false);
@@ -98,6 +103,8 @@ export default function HomeScreen() {
   const todayIndex = new Date().getDate() % DAILY_QUESTIONS.length;
   const dailyQ = DAILY_QUESTIONS[todayIndex];
 
+  useEffect(() => { logScreen("Home"); }, []);
+
   useFocusEffect(useCallback(() => {
     const load = async () => {
       const name = await AsyncStorage.getItem("naelo_name");
@@ -105,17 +112,18 @@ export default function HomeScreen() {
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          const uid = session.user.id;
+        const uid = session?.user?.id || auth.currentUser?.uid;
+        if (uid) {
 
           const { data: profile } = await supabase
             .from("profiles")
-            .select("score, name")
+            .select("score, name, streak")
             .eq("id", uid)
             .single();
 
           if (profile) {
             setScore(profile.score || 50);
+            setStreak(profile.streak || 0);
             if (profile.name) setUserName(profile.name);
           }
 
@@ -191,34 +199,24 @@ export default function HomeScreen() {
     ])).start();
   }, []);
 
+  const API_URL = "https://mynaelo.com/api";
+
   // --- Оцінити відповідь → змінити score ---
   const insertHint = (hint: string) => {
     const separator = answerText.trim() ? ", " : "";
     setAnswerText(prev => prev.trim() + separator + hint);
   };
 
-  const evaluateAnswer = (text: string, hints: string[]): number => {
-    // Проста логіка, потім замінимо на AI
-    const positive = ["добре", "супер", "чудово", "гуляв", "друзі", "кава", "музика", "кохан", "радість", "сміх", "сон", "відпочи", "прогулянк", "йога", "природ", "сонячн", "приємн"];
-    const negative = ["важко", "стрес", "конфлікт", "погано", "втом", "недосип", "тривога", "самот", "злість", "сварк", "соцмереж", "нарад", "робот"];
-
+  // Keyword-based fallback
+  const evaluateLocal = (text: string): number => {
+    const positive = ["добре", "супер", "чудово", "гуляв", "друзі", "кава", "музика", "кохан", "радість", "сміх", "відпочи", "прогулянк", "йога", "природ", "приємн"];
+    const negative = ["важко", "стрес", "конфлікт", "погано", "втом", "недосип", "тривога", "самот", "злість", "сварк", "соцмереж"];
     const lower = text.toLowerCase();
     let delta = 0;
     positive.forEach(w => { if (lower.includes(w)) delta += 3; });
     negative.forEach(w => { if (lower.includes(w)) delta -= 3; });
-
-    hints.forEach(h => {
-      if (h.includes("Супер") || h.includes("Добре") || h.includes("Чудово") || h.includes("Прогулянка") || h.includes("Друзі")) delta += 4;
-      if (h.includes("Важко") || h.includes("Погано") || h.includes("Конфлікт") || h.includes("Соцмережі") || h.includes("Недосип")) delta -= 3;
-      if (h.includes("Так собі") || h.includes("Нормально")) delta += 1;
-    });
-
-    // Бонус за розповідь
     if (text.trim().length > 20) delta += 2;
-    if (text.trim().length > 60) delta += 2;
-
-    if (delta === 0 && (text.trim() || hints.length > 0)) delta = 2;
-
+    if (delta === 0 && text.trim()) delta = 2;
     return Math.max(-15, Math.min(15, delta));
   };
 
@@ -227,19 +225,43 @@ export default function HomeScreen() {
     if (!answerText.trim()) return;
     Keyboard.dismiss();
 
-    const delta = evaluateAnswer(answerText, []);
-    const newScore = Math.max(5, Math.min(95, score + delta));
-    setScoreChange(delta);
+    // Спочатку показати результат з локальним розрахунком, потім оновити AI
+    const localDelta = evaluateLocal(answerText);
+    const newScore = Math.max(5, Math.min(95, score + localDelta));
+    setScoreChange(localDelta);
     setScore(newScore);
     setAnsweredToday(true);
     setShowThankYou(true);
+    logEvent("checkin_submit", { text_length: answerText.trim().length });
 
-    // Анімація подяки
     Animated.sequence([
       Animated.timing(thankYouAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
       Animated.delay(3000),
       Animated.timing(thankYouAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
     ]).start(() => setShowThankYou(false));
+
+    // AI оцінка асинхронно
+    let delta = localDelta;
+    try {
+      const evalRes = await fetch(`${API_URL}/ai/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: answerText.trim(), question: dailyQ.q }),
+      });
+      const evalJson = await evalRes.json();
+      if (typeof evalJson.delta === "number") {
+        delta = evalJson.delta;
+        const aiScore = Math.max(5, Math.min(95, score + delta));
+        setScore(aiScore);
+        setScoreChange(delta);
+      }
+    } catch (e) { /* fallback до local */ }
+
+    const finalScore = Math.max(5, Math.min(95, score + delta));
+
+    // Оновити UI з фінальним score
+    setScore(finalScore);
+    setScoreChange(delta);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -247,18 +269,44 @@ export default function HomeScreen() {
         const uid = session.user.id;
         const today = new Date().toISOString().split("T")[0];
 
+        // Зберегти чекін
         await supabase.from("daily_checkins").upsert({
           user_id: uid,
           date: today,
           note: answerText.trim() || null,
           hints: null,
           question: dailyQ.q,
-          energy: newScore,
+          energy: finalScore,
           delta,
         }, { onConflict: "user_id,date" });
 
+        // Розрахувати streak автоматично
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("streak, last_activity")
+          .eq("id", uid)
+          .single();
+
+        let newStreak = 1;
+        if (profile) {
+          const lastActivity = profile.last_activity
+            ? new Date(profile.last_activity).toISOString().split("T")[0]
+            : null;
+          if (lastActivity === yesterdayStr) {
+            newStreak = (profile.streak || 0) + 1;
+          } else if (lastActivity === today) {
+            newStreak = profile.streak || 1;
+          }
+        }
+
         await supabase.from("profiles").update({
-          score: newScore,
+          score: finalScore,
+          streak: newStreak,
+          momentum: delta,
           last_activity: new Date().toISOString(),
         }).eq("id", uid);
       }
@@ -294,11 +342,7 @@ export default function HomeScreen() {
 
       {/* Хедер */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Привіт, {userName || "друже"} ✨</Text>
-        <View style={styles.onlineRow}>
-          <View style={styles.onlineDot} />
-          <Text style={styles.onlineText}>Naelo</Text>
-        </View>
+        <Text style={styles.headerTitle}>Привіт, {userName || "друже"}</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
@@ -309,19 +353,31 @@ export default function HomeScreen() {
         <View style={styles.scoreBlock}>
           <Text style={styles.scoreLabel}>Вогник душі</Text>
           <Text style={[styles.scoreValue, { color: scoreColor(score) }]}>{score}%</Text>
+          {streak > 0 && (
+            <View style={styles.streakRow}>
+              <Ionicons name="flame" size={14} color={COLORS.primary} />
+              <Text style={styles.streakText}>{streak} {streak === 1 ? "день" : streak < 5 ? "дні" : "днів"} поспіль</Text>
+            </View>
+          )}
         </View>
 
         {/* Порада Naelo */}
         <View style={styles.adviceCard}>
-          <Text style={styles.adviceText}>{advice.emoji} {advice.text}</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+            <Ionicons name={advice.icon as any} size={18} color={COLORS.primary} style={{ marginTop: 2 }} />
+            <Text style={[styles.adviceText, { flex: 1 }]}>{advice.text}</Text>
+          </View>
         </View>
 
         {/* Анімація подяки */}
         {showThankYou && (
           <Animated.View style={[styles.thankYouCard, { opacity: thankYouAnim }]}>
-            <Text style={styles.thankYouText}>
-              {scoreChange >= 0 ? "🔥" : "💛"} Вогник {scoreChange >= 0 ? "спалахнув" : "почув тебе"}{scoreChange !== 0 ? ` (${scoreChange > 0 ? "+" : ""}${scoreChange})` : ""}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name={scoreChange >= 0 ? "flame" : "heart-outline"} size={16} color={scoreChange >= 0 ? COLORS.primary : COLORS.danger} />
+              <Text style={styles.thankYouText}>
+                Вогник {scoreChange >= 0 ? "спалахнув" : "почув тебе"}{scoreChange !== 0 ? ` (${scoreChange > 0 ? "+" : ""}${scoreChange})` : ""}
+              </Text>
+            </View>
           </Animated.View>
         )}
 
@@ -358,10 +414,16 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.answeredCard}>
-            <Text style={styles.answeredTitle}>✅ Ти вже відповів сьогодні</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+              <Text style={styles.answeredTitle}>Ти вже відповів сьогодні</Text>
+            </View>
             <Text style={styles.answeredSub}>Завтра Naelo запитає щось нове</Text>
             <TouchableOpacity style={styles.chatBtn} onPress={() => router.push("/chat")}>
-              <Text style={styles.chatBtnText}>💬 Поговорити з Naelo</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="chatbubble-outline" size={16} color={COLORS.primary} />
+                <Text style={styles.chatBtnText}>Поговорити з Naelo</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}
@@ -388,21 +450,19 @@ const styles = StyleSheet.create({
   // Хедер
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, paddingTop: SIZES.paddingTop, paddingBottom: 8, zIndex: 10 },
   headerTitle: { color: COLORS.text, fontSize: SIZES.fontLG, fontWeight: "600", letterSpacing: 0.3, flex: 1 },
-  onlineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success },
-  onlineText: { color: COLORS.success, fontSize: SIZES.fontSM },
-
   // Скрол
-  scroll: { flex: 1, paddingHorizontal: SIZES.paddingH },
-  scrollInner: { alignItems: "center" },
+  scroll: { flex: 1 },
+  scrollInner: { alignItems: "center", paddingHorizontal: CONTENT_PAD_H },
 
   // Вогник душі
   scoreBlock: { alignItems: "center", marginBottom: 16 },
-  scoreLabel: { color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: "500", letterSpacing: 1 },
+  scoreLabel: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600", letterSpacing: 1.5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, overflow: "hidden", marginBottom: 4 },
   scoreValue: { fontSize: 52, fontWeight: "800", letterSpacing: 1 },
+  streakRow: { marginTop: 4 },
+  streakText: { color: COLORS.primary, fontSize: 13, fontWeight: "600" },
 
   // Порада
-  adviceCard: { width: "100%", paddingVertical: 12, paddingHorizontal: 16, borderRadius: SIZES.radius, backgroundColor: "rgba(255,179,0,0.08)", borderWidth: 1, borderColor: "rgba(255,179,0,0.15)", marginBottom: 16 },
+  adviceCard: { width: "100%", maxWidth: CONTENT_MAX_W, paddingVertical: 12, paddingHorizontal: 16, borderRadius: SIZES.radius, backgroundColor: "rgba(255,179,0,0.08)", borderWidth: 1, borderColor: "rgba(255,179,0,0.15)", marginBottom: 16 },
   adviceText: { color: "rgba(255,255,255,0.75)", fontSize: 14, textAlign: "center", lineHeight: 20 },
 
   // Подяка
@@ -410,7 +470,7 @@ const styles = StyleSheet.create({
   thankYouText: { color: COLORS.primary, fontSize: 16, fontWeight: "700" },
 
   // Питання дня
-  questionCard: { width: "100%", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SIZES.radiusLarge, padding: 20, gap: 14 },
+  questionCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SIZES.radiusLarge, padding: 20, gap: 14 },
   questionTitle: { color: COLORS.text, fontSize: 18, fontWeight: "700" },
 
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
@@ -425,7 +485,7 @@ const styles = StyleSheet.create({
   hintText: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
 
   // Вже відповів
-  answeredCard: { width: "100%", backgroundColor: "rgba(0,0,0,0.4)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: SIZES.radiusLarge, padding: 24, alignItems: "center", gap: 10 },
+  answeredCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(0,0,0,0.4)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: SIZES.radiusLarge, padding: 24, alignItems: "center", gap: 10 },
   answeredTitle: { color: COLORS.text, fontSize: 17, fontWeight: "600" },
   answeredSub: { color: "rgba(255,255,255,0.5)", fontSize: 14 },
   chatBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 12, borderRadius: SIZES.radiusLarge, borderWidth: 1, borderColor: COLORS.primaryGlow, backgroundColor: COLORS.primaryFaint },

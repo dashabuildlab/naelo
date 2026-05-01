@@ -3,7 +3,7 @@
 
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
-import { COLORS, SIZES } from "../lib/theme";
+import { COLORS, SIZES, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
 
 const LAST_UPDATED = "29 квітня 2026 р.";
 const CONTACT_EMAIL = "privacy@naelo.app";
@@ -153,14 +153,15 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingTop: SIZES.paddingTop, paddingBottom: 12, paddingHorizontal: 20,
+    paddingTop: SIZES.paddingTop, paddingBottom: 12, paddingHorizontal: CONTENT_PAD_H,
     borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.08)",
+    maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const,
   },
   backBtn:      { width: 70 },
   backText:     { color: "#FFB300", fontSize: 15, fontWeight: "600" },
   headerTitle:  { color: "#fff", fontSize: 16, fontWeight: "700" },
 
-  content:      { paddingHorizontal: 24, paddingTop: 20 },
+  content:      { paddingHorizontal: CONTENT_PAD_H, paddingTop: 20, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
   updated:      { color: "rgba(255,255,255,0.25)", fontSize: 12, textAlign: "center", marginBottom: 24 },
 
   section:      { marginBottom: 24 },

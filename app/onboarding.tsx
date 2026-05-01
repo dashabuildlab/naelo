@@ -14,7 +14,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import KeyboardScreen from "../lib/KeyboardScreen";
 
 const { width, height } = Dimensions.get("window");
-const S = width * 0.42;
+// На iPad обмежуємо розмір сфери щоб вона не займала пів-екрану
+const S  = Math.min(width * 0.42, 180);
 const RS = S / 2;
 
 // --- Дані для екранів ---
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
   sphereWrap: { marginBottom: 4 },
   welcomeBg: { position: "absolute", top: 0, left: 0, width: width, height: height },
   sphereWrapSmall: { marginBottom: 12, transform: [{ scale: 0.7 }] },
-  stepContainer: { width: "100%", paddingHorizontal: 24, alignItems: "center", gap: 14 },
+  stepContainer: { width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: 24, alignItems: "center", gap: 14 },
 
   // Привітання
   welcomeTitle: { color: "#fff", fontSize: 28, fontWeight: "700", textAlign: "center" },

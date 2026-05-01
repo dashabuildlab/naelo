@@ -3,17 +3,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert, Animated, Dimensions, Image, ScrollView, StatusBar,
+  Animated, Dimensions, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { deleteUser } from "firebase/auth";
-import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
-import { COLORS, SIZES, SHARED } from "../lib/theme";
+import { auth } from "../lib/firebase";
+import { COLORS, SIZES, SHARED, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
+import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
-import Header from "../lib/Header";
 
 const { width } = Dimensions.get("window");
 
@@ -73,8 +72,8 @@ export default function MyPathScreen() {
         if (dtRaw) setDrainsText(dtRaw);
 
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          const uid = session.user.id;
+        const uid = session?.user?.id || auth.currentUser?.uid;
+        if (uid) {
 
           const { data: profile } = await supabase
             .from("profiles")
@@ -101,76 +100,17 @@ export default function MyPathScreen() {
     load();
   }, []));
 
-  // ── Видалити акаунт ─────────────────────────────────────────────
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      "Видалити акаунт?",
-      "Всі твої дані — вогник, історія, налаштування — будуть стерті назавжди. Це незворотня дія.",
-      [
-        { text: "Скасувати", style: "cancel" },
-        {
-          text: "Видалити",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
-              const uid = session?.user?.id || auth.currentUser?.uid;
-
-              if (uid) {
-                // 1. Видалити дані з Supabase
-                await supabase.from("daily_checkins").delete().eq("user_id", uid);
-                await supabase.from("profiles").delete().eq("id", uid);
-                await supabase.auth.signOut();
-              }
-
-              // 2. Видалити Firebase акаунт
-              if (auth.currentUser) {
-                await deleteUser(auth.currentUser);
-              }
-
-              // 3. Очистити AsyncStorage
-              await AsyncStorage.clear();
-
-              // 4. Перейти до екрану авторизації
-              router.replace("/auth");
-            } catch (e: any) {
-              // Firebase вимагає недавнього входу для видалення
-              if (e?.code === "auth/requires-recent-login") {
-                Alert.alert(
-                  "Потрібна повторна авторизація",
-                  "Вийди та увійди знову, потім спробуй видалити акаунт.",
-                );
-              } else {
-                Alert.alert("Помилка", e?.message || "Не вдалося видалити акаунт");
-              }
-            }
-          },
-        },
-      ],
-    );
-  };
 
   // --- Міні-графік енергії (останні 7 днів) ---
   const last7 = checkins.slice(0, 7).reverse();
   const maxE = Math.max(...last7.map(c => c.energy), 1);
 
-  // --- Emoji для опор ---
-  const EMOJI_MAP: Record<string, string> = {
-    "Прогулянка": "🚶", "Медитація": "🧘", "Музика": "🎵", "Кава": "☕",
-    "Читання": "📚", "Спорт": "🏃", "Природа": "🌿", "Ванна": "🛁",
-    "Смачна їжа": "🍓", "Хороший сон": "💤", "Ігри": "🎮", "Творчість": "✍️",
-    "Тварини": "🐕", "Друзі": "👥", "Соцмережі": "📱", "Пізній сон": "😴",
-    "Конфлікти": "😤", "Перевтома": "🏢", "Новини": "📰", "Фастфуд": "🍔",
-    "Самотність": "😔", "Фінансовий стрес": "💸", "Шум": "🔇", "Прокрастинація": "⏰",
-  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <Header title="Мій шлях" absolute />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner}>
-        <View style={{ height: SIZES.paddingTop + 56 }} />
 
         {/* ═══ Вогник душі зараз ═══ */}
         <View style={styles.scoreCard}>
@@ -179,9 +119,16 @@ export default function MyPathScreen() {
             {currentScore}%
           </Text>
           {checkins.length >= 3 && (
-            <Text style={styles.scoreTrend}>
-              {checkins[0]?.energy >= checkins[2]?.energy ? "📈 Зростає" : "📉 Падає"} за 3 дні
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+              <Ionicons
+                name={checkins[0]?.energy >= checkins[2]?.energy ? "trending-up" : "trending-down"}
+                size={14}
+                color="rgba(255,255,255,0.5)"
+              />
+              <Text style={styles.scoreTrend}>
+                {checkins[0]?.energy >= checkins[2]?.energy ? "Зростає" : "Падає"} за 3 дні
+              </Text>
+            </View>
           )}
         </View>
 
@@ -211,13 +158,16 @@ export default function MyPathScreen() {
         <View style={styles.dualBlock}>
           {/* Додай */}
           <View style={[styles.halfCard, styles.halfCardGreen]}>
-            <Text style={styles.halfTitle}>🟢 Додай</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="add-circle" size={18} color={COLORS.success} />
+              <Text style={styles.halfTitle}>Додай</Text>
+            </View>
             <Text style={styles.halfSub}>Це тобі дає сили</Text>
             {givers.length > 0 ? (
               <View style={styles.chipsWrap}>
                 {givers.map(g => (
                   <View key={g} style={[styles.chip, styles.chipGreen]}>
-                    <Text style={styles.chipText}>{EMOJI_MAP[g] || "✨"} {g}</Text>
+                    <Text style={styles.chipText}>{g}</Text>
                   </View>
                 ))}
               </View>
@@ -230,13 +180,16 @@ export default function MyPathScreen() {
 
           {/* Відпусти */}
           <View style={[styles.halfCard, styles.halfCardRed]}>
-            <Text style={styles.halfTitle}>🔴 Відпусти</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="remove-circle" size={18} color={COLORS.danger} />
+              <Text style={styles.halfTitle}>Відпусти</Text>
+            </View>
             <Text style={styles.halfSub}>Це висмоктує</Text>
             {drains.length > 0 ? (
               <View style={styles.chipsWrap}>
                 {drains.map(d => (
                   <View key={d} style={[styles.chip, styles.chipRed]}>
-                    <Text style={styles.chipText}>{EMOJI_MAP[d] || "💀"} {d}</Text>
+                    <Text style={styles.chipText}>{d}</Text>
                   </View>
                 ))}
               </View>
@@ -250,10 +203,13 @@ export default function MyPathScreen() {
 
         {/* ═══ Стрічка відповідей ═══ */}
         <View style={styles.timelineSection}>
-          <Text style={styles.sectionTitle}>📖 Моя історія</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Ionicons name="book-outline" size={16} color={COLORS.text} />
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Моя історія</Text>
+          </View>
           {checkins.length === 0 && !loading && (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>✨</Text>
+              <Ionicons name="sparkles-outline" size={40} color={COLORS.primary} style={{ marginBottom: 4 }} />
               <Text style={styles.emptyTitle}>Поки порожньо</Text>
               <Text style={styles.emptySub}>Відповідай на питання дня{"\n"}і тут зʼявиться твоя історія</Text>
               <TouchableOpacity style={styles.goHomeBtn} onPress={() => router.push("/home")}>
@@ -267,14 +223,17 @@ export default function MyPathScreen() {
               <View key={c.id} style={styles.entryCard}>
                 <View style={styles.entryHeader}>
                   <Text style={styles.entryDate}>{formatDate(c.date)}</Text>
-                  <Text style={[styles.entryScore, { color: scoreColor(c.energy) }]}>
-                    ⚡ {c.energy}%
-                    {c.delta !== 0 && (
-                      <Text style={{ color: c.delta > 0 ? "#4ADE80" : "#FF6B6B" }}>
-                        {" "}{c.delta > 0 ? "+" : ""}{c.delta}
-                      </Text>
-                    )}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    <Ionicons name="flash" size={13} color={scoreColor(c.energy)} />
+                    <Text style={[styles.entryScore, { color: scoreColor(c.energy) }]}>
+                      {c.energy}%
+                      {c.delta !== 0 && (
+                        <Text style={{ color: c.delta > 0 ? "#4ADE80" : "#FF6B6B" }}>
+                          {" "}{c.delta > 0 ? "+" : ""}{c.delta}
+                        </Text>
+                      )}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.entryQuestion}>{c.question}</Text>
                 {c.note ? (
@@ -293,10 +252,18 @@ export default function MyPathScreen() {
 
         {/* ═══ Зона акаунту ═══ */}
         <View style={styles.accountSection}>
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount} activeOpacity={0.75}>
-            <Text style={styles.deleteBtnText}>🗑 Видалити акаунт</Text>
+          <TouchableOpacity style={[styles.settingsBtn, styles.statsBtn]} onPress={() => router.push("/stats")} activeOpacity={0.8}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="stats-chart" size={18} color={COLORS.primary} />
+              <Text style={[styles.settingsBtnText, { color: COLORS.primary }]}>Повна статистика</Text>
+            </View>
           </TouchableOpacity>
-          <Text style={styles.deleteHint}>Всі дані будуть видалені назавжди</Text>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push("/settings")} activeOpacity={0.8}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="settings-outline" size={18} color={COLORS.textSoft} />
+              <Text style={styles.settingsBtnText}>Налаштування акаунту</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 100 }} />
@@ -310,7 +277,7 @@ export default function MyPathScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgDark },
   scroll: { flex: 1 },
-  scrollInner: { paddingHorizontal: SIZES.paddingH },
+  scrollInner: { paddingHorizontal: CONTENT_PAD_H, paddingTop: SIZES.paddingTop + 16, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
 
   // Вогник зараз
   scoreCard: {
@@ -320,7 +287,7 @@ const styles = StyleSheet.create({
   },
   scoreLabel: { color: "rgba(255,255,255,0.5)", fontSize: 14, letterSpacing: 1, marginBottom: 4 },
   scoreValue: { fontSize: 48, fontWeight: "800" },
-  scoreTrend: { color: "rgba(255,255,255,0.5)", fontSize: 13, marginTop: 4 },
+  scoreTrend: { color: "rgba(255,255,255,0.5)", fontSize: 13 },
 
   // Графік
   chartCard: {
@@ -366,15 +333,17 @@ const styles = StyleSheet.create({
   entryHintsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   entryHint: { color: "rgba(255,255,255,0.5)", fontSize: 12, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
 
-  // Акаунт / видалення
+  // Акаунт / налаштування
   accountSection: { marginTop: 24, alignItems: "center", gap: 8 },
-  deleteBtn: {
+  settingsBtn: {
     paddingHorizontal: 28, paddingVertical: 13,
-    borderRadius: 30, borderWidth: 1.5, borderColor: "rgba(255,80,80,0.45)",
-    backgroundColor: "rgba(255,60,60,0.07)",
+    borderRadius: 30, borderWidth: 1.5, borderColor: "rgba(255,179,0,0.3)",
+    backgroundColor: "rgba(255,179,0,0.06)", width: "100%" as const,
   },
-  deleteBtnText: { color: "#FF6B6B", fontSize: 15, fontWeight: "700" },
-  deleteHint: { color: "rgba(255,255,255,0.22)", fontSize: 12, textAlign: "center" },
+  statsBtn: {
+    borderColor: COLORS.primary, backgroundColor: "rgba(255,179,0,0.1)",
+  },
+  settingsBtnText: { color: COLORS.textSoft, fontSize: 15, fontWeight: "600" },
 
   // Пусто
   emptyCard: {

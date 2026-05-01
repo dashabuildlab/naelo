@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   logo:            { fontSize: 36, marginBottom: 24 },
   title:           { color: "#fff", fontSize: 26, fontWeight: "700", textAlign: "center" },
   subtitle:        { color: "rgba(255,255,255,0.5)", fontSize: 15, marginTop: 8, marginBottom: 32, textAlign: "center" },
-  form:            { width: "100%", gap: 12 },
+  form:            { width: "100%", maxWidth: 460, gap: 12 },
 
   // Social buttons
   btnSocial:       { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 15, borderRadius: 30, backgroundColor: "#4285F4" },

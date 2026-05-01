@@ -5,7 +5,8 @@ const path = require("path");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.text({ type: "text/plain", limit: "1mb" }));
 
 // Static HTML pages (privacy, policy, delete-account)
 app.use(express.static(path.join(__dirname, "../assets")));
@@ -23,6 +24,10 @@ app.get("/api/health", (req, res) => res.json({ ok: true, app: "naelo-api", ts: 
 app.get("/api/privacy",        (req, res) => res.sendFile(path.join(__dirname, "../assets/privacy.html")));
 app.get("/api/policy",         (req, res) => res.sendFile(path.join(__dirname, "../assets/policy.html")));
 app.get("/api/delete-account", (req, res) => res.sendFile(path.join(__dirname, "../assets/delete-account.html")));
+
+const dreamsRouter = require("./dreams");
+app.use("/dreams", dreamsRouter);
+app.use("/api/dreams", dreamsRouter);
 
 const { calculateScore } = require("./score");
 app.get("/user/score/:userId", async (req, res) => {
