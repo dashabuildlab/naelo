@@ -2,7 +2,7 @@
   "expo": {
     "name": "naelo",
     "slug": "naelo",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "naelo",
@@ -10,9 +10,10 @@
     "newArchEnabled": true,
     "android": {
       "package": "com.mynaelo.app",
-      "versionCode": 3,
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 4,
       "targetSdkVersion": 35,
-      "compileSdkVersion": 35,
+      "compileSdkVersion": 36,
       "minSdkVersion": 26,
       "adaptiveIcon": {
         "backgroundColor": "#0a0812",
@@ -60,7 +61,7 @@
         {
           "android": {
             "targetSdkVersion": 35,
-            "compileSdkVersion": 35,
+            "compileSdkVersion": 36,
             "minSdkVersion": 26
           }
         }
@@ -70,6 +71,7 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.mynaelo.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSUserNotificationUsageDescription": "Naelo надсилає щоденне нагадування про чекін, щоб ти не пропустив свій вогник душі.",
         "ITSAppUsesNonExemptEncryption": false
