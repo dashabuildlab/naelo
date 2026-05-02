@@ -5,6 +5,10 @@ import Purchases, { type PurchasesPackage } from "react-native-purchases";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { auth } from "./firebase";
+
+// Акаунти з безкоштовним Premium (Apple reviewer, тестові акаунти)
+const REVIEWER_EMAILS = ["review@mynaelo.com"];
 
 // ── RevenueCat API Keys (замінити на реальні з dashboard) ──────────
 const RC_IOS_KEY     = "appl_AhFQhhNwoQlNuJgdLeDDvChbRRq";
@@ -30,6 +34,10 @@ export async function initPurchases(): Promise<void> {
 
 // ── Перевірка активного преміуму ──────────────────────────────────
 export async function checkPremium(): Promise<boolean> {
+  // Reviewer / тестові акаунти — завжди premium
+  const email = auth.currentUser?.email;
+  if (email && REVIEWER_EMAILS.includes(email)) return true;
+
   // Локальний кеш для швидкості
   const cached = await AsyncStorage.getItem(STORAGE_KEY_PREM);
   if (cached === "true") return true;

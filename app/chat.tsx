@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from "react-native";
@@ -45,9 +45,28 @@ export default function ChatScreen() {
   const [recentCheckins, setRecentCheckins] = useState("");
   const [giversDrains, setGiversDrains] = useState("");
   const [practicesCount, setPracticesCount] = useState(0);
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const [aiConsentGiven, setAiConsentGiven] = useState(false);
 
   useEffect(() => { logScreen("Chat"); }, []);
-  useEffect(() => { loadContext(); }, []);
+  useEffect(() => { loadContext(); checkAiConsent(); }, []);
+
+  const checkAiConsent = async () => {
+    const consent = await AsyncStorage.getItem("naelo_ai_consent");
+    if (consent === "true") { setAiConsentGiven(true); return; }
+    setShowAiConsent(true);
+  };
+
+  const acceptAiConsent = async () => {
+    await AsyncStorage.setItem("naelo_ai_consent", "true");
+    setAiConsentGiven(true);
+    setShowAiConsent(false);
+  };
+
+  const declineAiConsent = () => {
+    setShowAiConsent(false);
+    router.back();
+  };
 
   const loadContext = async () => {
     const name = await AsyncStorage.getItem("naelo_name") || "";
@@ -148,6 +167,28 @@ export default function ChatScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
+
+      {/* ── AI Disclosure Modal (Apple Guideline 5.1.2) ── */}
+      <Modal visible={showAiConsent} transparent animationType="fade">
+        <View style={styles.consentOverlay}>
+          <View style={styles.consentBox}>
+            <Text style={styles.consentIcon}>🤖</Text>
+            <Text style={styles.consentTitle}>AI-чат Naelo</Text>
+            <Text style={styles.consentBody}>
+              Для відповідей Naelo використовує штучний інтелект від{" "}
+              <Text style={{ color: COLORS.primary }}>Anthropic (Claude)</Text>.{"\n\n"}
+              Твої повідомлення, ім'я, емоційний стан та контекст надсилаються до захищеного API Anthropic для генерації відповідей.{"\n\n"}
+              Дані не використовуються для навчання AI і не передаються третім сторонам. Детальніше — у Політиці конфіденційності.
+            </Text>
+            <TouchableOpacity style={styles.consentAccept} onPress={acceptAiConsent}>
+              <Text style={styles.consentAcceptText}>Погоджуюсь →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.consentDecline} onPress={declineAiConsent}>
+              <Text style={styles.consentDeclineText}>Не хочу використовувати AI</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* KAV не охоплює BottomNav — offset = висота BottomNav (~78px) */}
       <KeyboardAvoidingView
@@ -250,4 +291,14 @@ const styles = StyleSheet.create({
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
   sendBtnDisabled: { backgroundColor: "rgba(255,179,0,0.25)" },
   sendIcon: { color: "#000", fontSize: 20, fontWeight: "700" },
+  // AI Consent
+  consentOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", alignItems: "center", padding: 24 },
+  consentBox: { backgroundColor: COLORS.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 380, alignItems: "center" },
+  consentIcon: { fontSize: 40, marginBottom: 12 },
+  consentTitle: { color: COLORS.text, fontSize: 20, fontWeight: "800", marginBottom: 14, textAlign: "center" },
+  consentBody: { color: COLORS.textMuted, fontSize: 14, lineHeight: 22, textAlign: "center", marginBottom: 24 },
+  consentAccept: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, width: "100%", alignItems: "center", marginBottom: 10 },
+  consentAcceptText: { color: "#000", fontSize: 16, fontWeight: "700" },
+  consentDecline: { paddingVertical: 10, alignItems: "center" },
+  consentDeclineText: { color: COLORS.textFaint, fontSize: 13 },
 });

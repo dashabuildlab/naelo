@@ -204,6 +204,9 @@ export default function PaywallScreen() {
         <Text style={styles.legal}>
           Підписка поновлюється автоматично. Скасувати — у налаштуваннях магазину до кінця поточного періоду.
         </Text>
+        <TouchableOpacity onPress={() => router.push("/terms")}>
+          <Text style={styles.legalLink}>Умови використання</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -285,4 +288,5 @@ const styles = StyleSheet.create({
   restoreText: { color: COLORS.textMuted, fontSize: 14, textDecorationLine: "underline" },
 
   legal: { color: "rgba(255,255,255,0.18)", fontSize: 11, textAlign: "center", lineHeight: 16 },
+  legalLink: { color: "rgba(255,179,0,0.4)", fontSize: 11, textAlign: "center", marginTop: 6, textDecorationLine: "underline" },
 });
