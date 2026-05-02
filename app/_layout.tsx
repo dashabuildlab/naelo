@@ -61,6 +61,7 @@ export default function RootLayout() {
         <Stack.Screen name="my-path" />
         <Stack.Screen name="dream-path" />
         <Stack.Screen name="privacy" />
+        <Stack.Screen name="terms" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="stats" />
         <Stack.Screen name="paywall" />
