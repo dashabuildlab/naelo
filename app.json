@@ -74,7 +74,12 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSUserNotificationUsageDescription": "Naelo надсилає щоденне нагадування про чекін, щоб ти не пропустив свій вогник душі.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["com.googleusercontent.apps.839119458174-enj35mto47av9hqh8cttrdrqh0ljb4t2"]
+          }
+        ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [

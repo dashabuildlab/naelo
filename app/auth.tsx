@@ -1,7 +1,7 @@
 // ~/luma/app/auth.tsx
 // Авторизація: Google, Apple, Email — через Firebase SDK
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   StatusBar, StyleSheet, Text, TextInput,
@@ -10,7 +10,8 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
 
 import {
   GoogleAuthProvider,
@@ -24,7 +25,9 @@ import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
 
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as WebBrowser from "expo-web-browser";
+
+// Необхідно для завершення OAuth сесії після редіректу
+WebBrowser.maybeCompleteAuthSession();
 
 // SHA-256 через вбудований crypto.subtle (Hermes SDK 54, не потребує native модулів)
 async function sha256hex(str: string): Promise<string> {
@@ -46,49 +49,34 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ── Google OAuth (WebBrowser, без expo-auth-session/PKCE) ────────
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!;
-      const nonce    = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      const redirect = Linking.createURL("auth/callback");
+  // ── Google Sign-In через Firebase (expo-auth-session) ────────────
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId:     "839119458174-eehh9uo3qikrki66cs32fi5cha2ee2gt.apps.googleusercontent.com",
+    iosClientId:     "839119458174-enj35mto47av9hqh8cttrdrqh0ljb4t2.apps.googleusercontent.com",
+    androidClientId: "839119458174-20hfm88p5c0t00mnf85j2m6cnc5povo3.apps.googleusercontent.com",
+  });
 
-      const params = new URLSearchParams({
-        client_id:     clientId,
-        redirect_uri:  redirect,
-        response_type: "id_token",
-        scope:         "openid profile email",
-        nonce,
-      });
-
-      const result = await WebBrowser.openAuthSessionAsync(
-        `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
-        redirect,
-      );
-
-      if (result.type === "success" && result.url) {
-        const fragment = result.url.split("#")[1] ?? "";
-        const parsed: Record<string, string> = {};
-        fragment.split("&").forEach(p => {
-          const [k, v] = p.split("=");
-          if (k) parsed[k] = decodeURIComponent(v ?? "");
-        });
-
-        if (parsed.id_token) {
-          const credential = GoogleAuthProvider.credential(parsed.id_token);
-          const fbResult   = await signInWithCredential(auth, credential);
-          await syncProfile(fbResult.user.uid, fbResult.user.displayName || "");
-          router.replace("/home");
-        } else {
-          Alert.alert("Помилка", "Google не повернув токен. Перевір redirect URI у Google Console.");
-        }
+  useEffect(() => {
+    if (response?.type === "success") {
+      const idToken = response.authentication?.idToken;
+      if (idToken) {
+        setLoading(true);
+        const credential = GoogleAuthProvider.credential(idToken);
+        signInWithCredential(auth, credential)
+          .then(async (result) => {
+            await syncProfile(result.user.uid, result.user.displayName || "");
+            router.replace("/home");
+          })
+          .catch((e) => Alert.alert("Помилка", e.message))
+          .finally(() => setLoading(false));
       }
-    } catch (e: any) {
-      Alert.alert("Помилка", e.message || "Google Sign-In не вдалося");
-    } finally {
-      setLoading(false);
+    } else if (response?.type === "error") {
+      Alert.alert("Помилка", response.error?.message || "Google Sign-In не вдалося");
     }
+  }, [response]);
+
+  const handleGoogleSignIn = () => {
+    promptAsync();
   };
 
   // ── Apple Sign-In (тільки iOS) ───────────────────────────────────
