@@ -29,6 +29,9 @@ const dreamsRouter = require("./dreams");
 app.use("/dreams", dreamsRouter);
 app.use("/api/dreams", dreamsRouter);
 
+const webhookRouter = require("./webhook");
+app.use("/api/webhooks", webhookRouter);
+
 const { calculateScore } = require("./score");
 app.get("/user/score/:userId", async (req, res) => {
   try {

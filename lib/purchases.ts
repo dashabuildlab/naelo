@@ -7,8 +7,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
 // ── RevenueCat API Keys (замінити на реальні з dashboard) ──────────
-const RC_IOS_KEY     = "appl_XXXXXXXXXXXXXXXXXXXXXXXXXX";
-const RC_ANDROID_KEY = "goog_XXXXXXXXXXXXXXXXXXXXXXXXXX";
+const RC_IOS_KEY     = "appl_AhFQhhNwoQlNuJgdLeDDvChbRRq";
+const RC_ANDROID_KEY = "goog_afFgRvrHstVtrNkZNyEmSIqDqPp";
 
 export const ENTITLEMENT_ID    = "premium";
 export const STORAGE_KEY_PREM  = "naelo_premium";

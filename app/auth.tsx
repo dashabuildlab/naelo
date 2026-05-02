@@ -302,13 +302,15 @@ export default function AuthScreen() {
             <Text style={styles.skipText}>Пропустити поки що →</Text>
           </TouchableOpacity>
 
-          {/* Privacy Policy */}
-          <TouchableOpacity style={styles.privacyRow} onPress={() => router.push("/privacy")}>
+          {/* Privacy Policy & Terms */}
+          <View style={styles.privacyRow}>
             <Text style={styles.privacyText}>
               Використовуючи Naelo, ти погоджуєшся з{" "}
-              <Text style={styles.privacyLink}>Політикою конфіденційності</Text>
+              <Text style={styles.privacyLink} onPress={() => router.push("/terms")}>Умовами використання</Text>
+              {" "}та{" "}
+              <Text style={styles.privacyLink} onPress={() => router.push("/privacy")}>Політикою конфіденційності</Text>
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
