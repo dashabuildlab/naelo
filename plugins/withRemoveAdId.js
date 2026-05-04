@@ -1,13 +1,17 @@
 // plugins/withRemoveAdId.js
 // Firebase Crashlytics автоматично додає com.google.android.gms.permission.AD_ID
-// в AndroidManifest.xml. Якщо застосунок не використовує рекламний ідентифікатор —
-// цей дозвіл треба явно видалити, щоб відповідати декларації у Google Play Console.
+// в AndroidManifest.xml. Явно видаляємо його через tools:node="remove".
 
 const { withAndroidManifest } = require("@expo/config-plugins");
 
 const withRemoveAdId = (config) =>
   withAndroidManifest(config, (config) => {
     const manifest = config.modResults.manifest;
+
+    // Додаємо xmlns:tools namespace якщо його немає
+    if (!manifest.$["xmlns:tools"]) {
+      manifest.$["xmlns:tools"] = "http://schemas.android.com/tools";
+    }
 
     if (!manifest["uses-permission"]) {
       manifest["uses-permission"] = [];
@@ -16,8 +20,7 @@ const withRemoveAdId = (config) =>
     // Перевіряємо чи вже є запис на видалення
     const alreadyRemoved = manifest["uses-permission"].some(
       (p) =>
-        p.$?.["android:name"] ===
-          "com.google.android.gms.permission.AD_ID" &&
+        p.$?.["android:name"] === "com.google.android.gms.permission.AD_ID" &&
         p.$?.["tools:node"] === "remove"
     );
 
