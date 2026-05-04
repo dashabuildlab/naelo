@@ -1,13 +1,14 @@
 // plugins/withFirebaseStaticFramework.js
-// Фікс для Firebase Swift pods зі static linkage в Expo managed workflow.
 //
-// Проблема: "The Swift pod FirebaseCoreInternal depends upon GoogleUtilities,
-// which does not define modules"
+// Фікс: Firebase Swift pods (FirebaseCoreInternal, FirebaseCrashlytics,
+// FirebaseRemoteConfig, FirebaseSessions) не можуть бути інтегровані як
+// static libraries бо їх Objective-C залежності (GoogleUtilities,
+// GoogleDataTransport, nanopb, FirebaseABTesting) не мають module maps.
 //
-// Причина: Firebase Objective-C залежності (GoogleUtilities, GoogleDataTransport,
-// nanopb, FirebaseABTesting) не мають module maps, необхідних для static linking.
-//
-// Рішення: $RNFirebaseAsStaticFramework = true + use_modular_headers!
+// Рішення:
+//   1. $RNFirebaseAsStaticFramework = true  — конфігурує RN Firebase для static режиму
+//   2. use_modular_headers!                 — генерує module maps для всіх ObjC pods
+//      (CocoaPods сам рекомендує це в повідомленні про помилку)
 
 const { withDangerousMod } = require("@expo/config-plugins");
 const fs = require("fs");
@@ -23,21 +24,15 @@ const withFirebaseStaticFramework = (config) =>
       );
       let content = fs.readFileSync(podfilePath, "utf8");
 
-      // 1. $RNFirebaseAsStaticFramework на самий початок файлу
+      // Додаємо обидва рядки в самий початок Podfile (ідемпотентно)
       if (!content.includes("$RNFirebaseAsStaticFramework")) {
-        content = "$RNFirebaseAsStaticFramework = true\n" + content;
+        const header =
+          "$RNFirebaseAsStaticFramework = true\n" +
+          "use_modular_headers!\n\n";
+        content = header + content;
+        fs.writeFileSync(podfilePath, content);
       }
 
-      // 2. use_modular_headers! одразу після рядка platform :ios
-      // Генерує module maps для всіх Objective-C pods — потрібно для static linking
-      if (!content.includes("use_modular_headers!")) {
-        content = content.replace(
-          /(platform :ios[^\n]*\n)/,
-          "$1use_modular_headers!\n"
-        );
-      }
-
-      fs.writeFileSync(podfilePath, content);
       return config;
     },
   ]);
