@@ -1,12 +1,13 @@
 // ~/luma/app/my-path.tsx
 // Мій шлях — графік енергії + 🟢 Додай / 🔴 Відпусти + стрічка відповідей
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   Animated, Dimensions, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
@@ -50,39 +51,83 @@ export default function MyPathScreen() {
   const router = useRouter();
 
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
-  const [givers, setGivers] = useState<string[]>([]);
-  const [drains, setDrains] = useState<string[]>([]);
-  const [giversText, setGiversText] = useState("");
-  const [drainsText, setDrainsText] = useState("");
   const [currentScore, setCurrentScore] = useState(50);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  useFocusEffect(useCallback(() => {
+  const userIdRef = useRef<string | null>(null);
+
+  // Слухаємо auth — коли uid з'являється, оновлюємо і стейт (для useFocusEffect), і ref
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        userIdRef.current = user.uid;
+        setUserId(user.uid);
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        const id = session?.user?.id || null;
+        userIdRef.current = id;
+        setUserId(id);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Derive givers/drains from checkin history
+  const { topGivers, topDrains } = useMemo(() => {
+    const giverMap: Record<string, number> = {};
+    const drainMap: Record<string, number> = {};
+
+    const addToMap = (map: Record<string, number>, note: string | null) => {
+      if (!note) return;
+      const items = note.split(/,\s*/)
+        .map(s => s.trim())
+        .filter(s => s.length >= 2 && s.length <= 25);
+      items.forEach(item => {
+        const key = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+        map[key] = (map[key] || 0) + 1;
+      });
+    };
+
+    checkins.forEach(c => {
+      const isGiverQ = c.question.includes("дало тобі сили");
+      const isDrainQ = c.question.includes("забрало енергію");
+      if (isGiverQ) addToMap(giverMap, c.note);
+      else if (isDrainQ) addToMap(drainMap, c.note);
+      else if (c.delta > 2) addToMap(giverMap, c.note);
+      else if (c.delta < -2) addToMap(drainMap, c.note);
+    });
+
+    const topGivers = Object.entries(giverMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([k]) => k);
+    const topDrains = Object.entries(drainMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([k]) => k);
+
+    return { topGivers, topDrains };
+  }, [checkins]);
+
+  // Завантажуємо раз при появі auth — не при кожному переході між вкладками
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        // Завантажити персональні дані
-        const gRaw = await AsyncStorage.getItem("naelo_givers");
-        if (gRaw) setGivers(JSON.parse(gRaw));
-        const dRaw = await AsyncStorage.getItem("naelo_drains");
-        if (dRaw) setDrains(JSON.parse(dRaw));
-        const gtRaw = await AsyncStorage.getItem("naelo_givers_text");
-        if (gtRaw) setGiversText(gtRaw);
-        const dtRaw = await AsyncStorage.getItem("naelo_drains_text");
-        if (dtRaw) setDrainsText(dtRaw);
+        const uid = userIdRef.current || auth.currentUser?.uid ||
+          (await supabase.auth.getSession()).data.session?.user?.id;
 
-        const { data: { session } } = await supabase.auth.getSession();
-        const uid = session?.user?.id || auth.currentUser?.uid;
         if (uid) {
-
           const { data: profile } = await supabase
             .from("profiles")
             .select("score")
             .eq("id", uid)
             .single();
-          if (profile) setCurrentScore(profile.score || 50);
+          const cachedScore = Number(await AsyncStorage.getItem("naelo_score") || "0");
+          const dbScore = profile?.score || 0;
+          setCurrentScore(Math.max(dbScore, cachedScore) || 50);
 
-          // Останні 30 днів чекінів
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           const { data: entries } = await supabase
@@ -93,12 +138,18 @@ export default function MyPathScreen() {
             .order("date", { ascending: false });
 
           if (entries) setCheckins(entries);
+        } else {
+          // Не авторизований — score і чекіни з локального кешу
+          const cached = await AsyncStorage.getItem("naelo_score");
+          if (cached) setCurrentScore(Number(cached));
+          const localRaw = await AsyncStorage.getItem("naelo_local_checkins");
+          if (localRaw) setCheckins(JSON.parse(localRaw));
         }
       } catch (e) {}
       setLoading(false);
     };
     load();
-  }, []));
+  }, [userId]);
 
 
   // --- Міні-графік енергії (останні 7 днів) ---
@@ -162,19 +213,17 @@ export default function MyPathScreen() {
               <Ionicons name="add-circle" size={18} color={COLORS.success} />
               <Text style={styles.halfTitle}>Додай</Text>
             </View>
-            <Text style={styles.halfSub}>Це тобі дає сили</Text>
-            {givers.length > 0 ? (
+            <Text style={styles.halfSub}>Дає сили найчастіше</Text>
+            {topGivers.length > 0 ? (
               <View style={styles.chipsWrap}>
-                {givers.map(g => (
+                {topGivers.map(g => (
                   <View key={g} style={[styles.chip, styles.chipGreen]}>
                     <Text style={styles.chipText}>{g}</Text>
                   </View>
                 ))}
               </View>
-            ) : giversText ? (
-              <Text style={styles.halfText}>{giversText}</Text>
             ) : (
-              <Text style={styles.halfEmpty}>Розкажеш на головній</Text>
+              <Text style={styles.halfEmpty}>Відповідай на питання дня — з'явиться твій патерн</Text>
             )}
           </View>
 
@@ -184,19 +233,17 @@ export default function MyPathScreen() {
               <Ionicons name="remove-circle" size={18} color={COLORS.danger} />
               <Text style={styles.halfTitle}>Відпусти</Text>
             </View>
-            <Text style={styles.halfSub}>Це висмоктує</Text>
-            {drains.length > 0 ? (
+            <Text style={styles.halfSub}>Висмоктує найчастіше</Text>
+            {topDrains.length > 0 ? (
               <View style={styles.chipsWrap}>
-                {drains.map(d => (
+                {topDrains.map(d => (
                   <View key={d} style={[styles.chip, styles.chipRed]}>
                     <Text style={styles.chipText}>{d}</Text>
                   </View>
                 ))}
               </View>
-            ) : drainsText ? (
-              <Text style={styles.halfText}>{drainsText}</Text>
             ) : (
-              <Text style={styles.halfEmpty}>Розкажеш на головній</Text>
+              <Text style={styles.halfEmpty}>Відповідай на питання дня — з'явиться твій патерн</Text>
             )}
           </View>
         </View>
@@ -266,7 +313,7 @@ export default function MyPathScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <BottomNav active="my-path" />
@@ -277,40 +324,40 @@ export default function MyPathScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgDark },
   scroll: { flex: 1 },
-  scrollInner: { paddingHorizontal: CONTENT_PAD_H, paddingTop: SIZES.paddingTop + 16, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
+  scrollInner: { paddingHorizontal: CONTENT_PAD_H, paddingTop: SIZES.paddingTop + 8, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
 
   // Вогник зараз
   scoreCard: {
-    alignItems: "center", paddingVertical: 20,
+    alignItems: "center", paddingVertical: 12,
     backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SIZES.radiusLarge,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginBottom: 16,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginBottom: 10,
   },
-  scoreLabel: { color: "rgba(255,255,255,0.5)", fontSize: 14, letterSpacing: 1, marginBottom: 4 },
-  scoreValue: { fontSize: 48, fontWeight: "800" },
-  scoreTrend: { color: "rgba(255,255,255,0.5)", fontSize: 13 },
+  scoreLabel: { color: "rgba(255,255,255,0.5)", fontSize: 13, letterSpacing: 1, marginBottom: 2 },
+  scoreValue: { fontSize: 36, fontWeight: "800" },
+  scoreTrend: { color: "rgba(255,255,255,0.5)", fontSize: 12 },
 
   // Графік
   chartCard: {
     backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SIZES.radiusLarge,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 12, marginBottom: 10,
   },
-  sectionTitle: { color: COLORS.text, fontSize: 16, fontWeight: "700", marginBottom: 12 },
-  chartRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", height: 110 },
-  chartCol: { alignItems: "center", flex: 1, gap: 4 },
-  chartBar: { width: 20, borderRadius: 6, minHeight: 8 },
-  chartPercent: { fontSize: 11, fontWeight: "600" },
-  chartDay: { color: "rgba(255,255,255,0.4)", fontSize: 11 },
+  sectionTitle: { color: COLORS.text, fontSize: 15, fontWeight: "700", marginBottom: 8 },
+  chartRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", height: 76 },
+  chartCol: { alignItems: "center", flex: 1, gap: 3 },
+  chartBar: { width: 18, borderRadius: 5, minHeight: 6 },
+  chartPercent: { fontSize: 10, fontWeight: "600" },
+  chartDay: { color: "rgba(255,255,255,0.4)", fontSize: 10 },
 
   // 🟢🔴 блоки
-  dualBlock: { flexDirection: "row", gap: 10, marginBottom: 16 },
+  dualBlock: { flexDirection: "row", gap: 8, marginBottom: 10 },
   halfCard: {
-    flex: 1, borderRadius: SIZES.radiusLarge, padding: 14, gap: 6,
+    flex: 1, borderRadius: SIZES.radiusLarge, padding: 10, gap: 4,
     borderWidth: 1,
   },
   halfCardGreen: { backgroundColor: "rgba(74,222,128,0.06)", borderColor: "rgba(74,222,128,0.2)" },
   halfCardRed: { backgroundColor: "rgba(255,107,107,0.06)", borderColor: "rgba(255,107,107,0.2)" },
-  halfTitle: { fontSize: 15, fontWeight: "700", color: COLORS.text },
-  halfSub: { fontSize: 12, color: "rgba(255,255,255,0.4)" },
+  halfTitle: { fontSize: 14, fontWeight: "700", color: COLORS.text },
+  halfSub: { fontSize: 11, color: "rgba(255,255,255,0.4)" },
   halfText: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontStyle: "italic", lineHeight: 18 },
   halfEmpty: { fontSize: 12, color: "rgba(255,255,255,0.25)" },
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
@@ -334,9 +381,9 @@ const styles = StyleSheet.create({
   entryHint: { color: "rgba(255,255,255,0.5)", fontSize: 12, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
 
   // Акаунт / налаштування
-  accountSection: { marginTop: 24, alignItems: "center", gap: 8 },
+  accountSection: { marginTop: 12, alignItems: "center", gap: 8 },
   settingsBtn: {
-    paddingHorizontal: 28, paddingVertical: 13,
+    paddingHorizontal: 20, paddingVertical: 10,
     borderRadius: 30, borderWidth: 1.5, borderColor: "rgba(255,179,0,0.3)",
     backgroundColor: "rgba(255,179,0,0.06)", width: "100%" as const,
   },

@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  Animated, Dimensions, Easing,
+  Animated, Dimensions, Easing, Image,
   Modal, ScrollView, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator,
 } from "react-native";
@@ -12,6 +12,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter, useFocusEffect } from "expo-router";
 import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES, SHARED, SHADOWS, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
 import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
@@ -102,7 +103,8 @@ export default function DreamPathScreen() {
   const bgPlayer = useVideoPlayer(require("../assets/screens/dream-path.mp4"), p => {
     p.loop  = true;
     p.muted = true;
-    p.play();
+    try { (p as any).audioMixingMode = "mixWithOthers"; } catch {} // не переривати музику
+    p.play(); // play() завжди виконується
   });
   const [loading, setLoading] = useState(true);
   const [showAddDream, setShowAddDream] = useState(false);
@@ -121,8 +123,41 @@ export default function DreamPathScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.3)).current;
   const glowCore = useRef(new Animated.Value(0.5)).current;
+  const posterOpacity = useRef(new Animated.Value(1)).current; // poster поки відео не готове
 
   useEffect(() => { logScreen("DreamPath"); }, []);
+
+  // Ховаємо poster коли відео готове до відтворення
+  useEffect(() => {
+    let sub: any;
+    try {
+      sub = bgPlayer.addListener("statusChange", ({ status }: { status: string }) => {
+        if (status === "readyToPlay") {
+          Animated.timing(posterOpacity, { toValue: 0, duration: 700, useNativeDriver: true }).start();
+        }
+      });
+    } catch {}
+    // Fallback таймаут якщо подія не прийшла
+    const fallback = setTimeout(() => {
+      Animated.timing(posterOpacity, { toValue: 0, duration: 700, useNativeDriver: true }).start();
+    }, 1500);
+    return () => { sub?.remove?.(); clearTimeout(fallback); };
+  }, []);
+
+  // Слухати Firebase auth — чекати поки сесія відновиться
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        // Firebase не має сесії — перевірити Supabase
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          setUserId(session?.user?.id || null);
+        });
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   useFocusEffect(useCallback(() => { loadDreams(); }, []));
 
@@ -167,19 +202,31 @@ export default function DreamPathScreen() {
   };
 
   const addDream = async () => {
-    if (!newDreamTitle.trim() || !userId) return;
+    if (!newDreamTitle.trim()) {
+      Alert.alert("Введи назву мрії", "Поле 'Яка твоя мрія?' є обов'язковим");
+      return;
+    }
+    // Якщо userId ще не завантажився — отримати зараз
+    const uid = userId || await getUserId();
+    if (!uid) {
+      Alert.alert("Увійди в акаунт", "Для збереження мрій потрібно увійти в акаунт");
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/dreams`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, title: newDreamTitle.trim(), why: newDreamWhy.trim() || null, deadline: newDreamDeadline.trim() || null }),
+        body: JSON.stringify({ user_id: uid, title: newDreamTitle.trim(), why: newDreamWhy.trim() || null, deadline: newDreamDeadline.trim() || null }),
       });
       const json = await res.json();
       if (json.dream) {
         setDreams((prev) => [...prev, { id: json.dream.id, title: json.dream.title, why: newDreamWhy.trim(), deadline: newDreamDeadline.trim(), steps: [], verified: false }]);
+        setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setShowAddDream(false);
       }
-    } catch (e) { console.error(e); }
-    setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setShowAddDream(false);
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Помилка", "Не вдалось зберегти мрію. Перевір з'єднання.");
+    }
   };
 
   const addStep = async (dreamId: string) => {
@@ -258,6 +305,12 @@ export default function DreamPathScreen() {
         style={styles.absoluteBg}
         contentFit="cover"
         nativeControls={false}
+      />
+      {/* Poster: показується миттєво, зникає коли відео готове */}
+      <Animated.Image
+        source={require("../assets/screens/dream-path.jpg")}
+        style={[styles.absoluteBg, { opacity: posterOpacity }]}
+        resizeMode="cover"
       />
       {SPARKS.map((s) => <Spark key={s.id} {...s} />)}
       {PATH_DOTS.map((d, i) => <GlowDot key={i} x={d.x} y={d.y} index={i} />)}
@@ -361,22 +414,25 @@ export default function DreamPathScreen() {
       </ScrollView>
 
       {/* Модаль додавання мрії */}
-      <Modal visible={showAddDream} animationType="slide" transparent onRequestClose={() => setShowAddDream(false)}>
+      <Modal visible={showAddDream} animationType="slide" transparent onRequestClose={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); }}>
         <KeyboardAwareScrollView contentContainerStyle={SHARED.modalOverlay as any} bottomOffset={20} keyboardShouldPersistTaps="handled">
           <View style={SHARED.modalContainer as any}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 8 }}>
-              <Ionicons name="star-outline" size={22} color={COLORS.primary} />
-              <Text style={modal.title}>Нова мрія</Text>
+            {/* Заголовок з кнопкою закриття */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="star-outline" size={22} color={COLORS.primary} />
+                <Text style={modal.title}>Нова мрія</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={COLORS.textMuted} />
+              </TouchableOpacity>
             </View>
-            <TextInput style={SHARED.input} placeholder="Яка твоя мрія?" placeholderTextColor={COLORS.textPlaceholder} value={newDreamTitle} onChangeText={setNewDreamTitle} autoFocus />
+            <TextInput style={SHARED.input} placeholder="Яка твоя мрія? *" placeholderTextColor={COLORS.textPlaceholder} value={newDreamTitle} onChangeText={setNewDreamTitle} autoFocus />
             <TextInput style={SHARED.input} placeholder="Чому ця мрія важлива для тебе?" placeholderTextColor={COLORS.textPlaceholder} value={newDreamWhy} onChangeText={setNewDreamWhy} multiline />
             <TextInput style={SHARED.input} placeholder="Коли хочеш досягти? (напр. 2026)" placeholderTextColor={COLORS.textPlaceholder} value={newDreamDeadline} onChangeText={setNewDreamDeadline} />
             <View style={modal.btns}>
-              <TouchableOpacity style={SHARED.btnPrimary} onPress={addDream}>
+              <TouchableOpacity style={[SHARED.btnPrimary as any, !newDreamTitle.trim() && { opacity: 0.45 }]} onPress={addDream}>
                 <Text style={SHARED.btnPrimaryText}>Додати →</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowAddDream(false)}>
-                <Text style={modal.btnCancel}>Скасувати</Text>
               </TouchableOpacity>
             </View>
           </View>

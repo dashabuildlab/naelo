@@ -55,10 +55,10 @@ const PRACTICES: Record<string, Practice[]> = {
 
 // --- Timer Modal ---
 const TimerModal = ({ practice, onClose, onComplete }: { practice: Practice; onClose: () => void; onComplete: () => void }) => {
+  const [phase, setPhase] = useState<"instructions" | "timer">("instructions");
   const [secondsLeft, setSecondsLeft] = useState(practice.durationSec);
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
   const intervalRef = useRef<any>(null);
 
   useEffect(() => { return () => { if (intervalRef.current) clearInterval(intervalRef.current); }; }, []);
@@ -78,6 +78,53 @@ const TimerModal = ({ practice, onClose, onComplete }: { practice: Practice; onC
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
 
+  // ── Фаза 1: Інструкція ──────────────────────────────────────────
+  if (phase === "instructions") {
+    return (
+      <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+        <View style={timer.overlay}>
+          <ScrollView contentContainerStyle={timer.scrollContainer} showsVerticalScrollIndicator={false}>
+            <View style={timer.container}>
+              <TouchableOpacity style={timer.closeBtn} onPress={onClose}>
+                <Ionicons name="close" size={22} color={COLORS.textMuted} />
+              </TouchableOpacity>
+              <Ionicons name={practice.icon as any} size={44} color={practice.color} style={{ marginBottom: 8 }} />
+              <Text style={timer.title}>{practice.title}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <Ionicons name="timer-outline" size={14} color={COLORS.textMuted} />
+                <Text style={timer.durationLabel}>{practice.duration}</Text>
+              </View>
+              <Text style={timer.descText}>{practice.description}</Text>
+
+              <View style={timer.instructionBlock}>
+                <Text style={timer.instructionTitle}>Як виконувати:</Text>
+                {practice.steps.map((step, i) => (
+                  <View key={i} style={timer.instructionRow}>
+                    <View style={[timer.stepDot, { backgroundColor: practice.color }]}>
+                      <Text style={timer.stepDotNum}>{i + 1}</Text>
+                    </View>
+                    <Text style={timer.instructionStep}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[timer.btn, { borderColor: practice.color, backgroundColor: practice.color + "20", marginTop: 8 }]}
+                onPress={() => setPhase("timer")}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="play" size={18} color={practice.color} />
+                  <Text style={[timer.btnText, { color: practice.color }]}>Запустити таймер</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ── Фаза 2: Таймер ─────────────────────────────────────────────
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={timer.overlay}>
@@ -91,18 +138,17 @@ const TimerModal = ({ practice, onClose, onComplete }: { practice: Practice; onC
           <View style={timer.progressBar}>
             <View style={[timer.progressFill, { width: `${progressPercent}%`, backgroundColor: practice.color }]} />
           </View>
-          <View style={timer.stepCard}>
-            <Text style={timer.stepLabel}>Крок {currentStep + 1} з {practice.steps.length}</Text>
-            <Text style={timer.stepText}>{practice.steps[currentStep]}</Text>
-            <View style={timer.stepNav}>
-              <TouchableOpacity onPress={() => currentStep > 0 && setCurrentStep(currentStep - 1)} disabled={currentStep === 0}>
-                <Text style={[timer.stepArrow, currentStep === 0 && { opacity: 0.2 }]}>‹ Назад</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => currentStep < practice.steps.length - 1 && setCurrentStep(currentStep + 1)} disabled={currentStep === practice.steps.length - 1}>
-                <Text style={[timer.stepArrow, currentStep === practice.steps.length - 1 && { opacity: 0.2 }]}>Далі ›</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/* Всі кроки одночасно під таймером */}
+          <ScrollView style={timer.stepsScroll} showsVerticalScrollIndicator={false}>
+            {practice.steps.map((step, i) => (
+              <View key={i} style={timer.timerStepRow}>
+                <View style={[timer.stepDot, { backgroundColor: practice.color }]}>
+                  <Text style={timer.stepDotNum}>{i + 1}</Text>
+                </View>
+                <Text style={timer.timerStepText}>{step}</Text>
+              </View>
+            ))}
+          </ScrollView>
           {finished ? (
             <TouchableOpacity style={[timer.btn, { borderColor: COLORS.success, backgroundColor: COLORS.successDim }]} onPress={() => { onComplete(); onClose(); }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -286,18 +332,24 @@ const styles = StyleSheet.create({
 
 const timer = StyleSheet.create({
   overlay: SHARED.modalOverlayCenter as any,
-  container: { backgroundColor: COLORS.bgModal, borderRadius: 28, padding: 28, width: "100%", maxWidth: isTablet ? 520 : undefined, alignItems: "center", gap: 12 },
+  scrollContainer: { flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  container: { backgroundColor: COLORS.bgModal, borderRadius: 28, padding: 24, width: "100%", maxWidth: isTablet ? 520 : undefined, alignItems: "center", gap: 12 },
   closeBtn: { position: "absolute", right: 16, top: 16, zIndex: 10 },
-  closeText: { color: COLORS.textMuted, fontSize: 20 },
-  title: { color: COLORS.text, fontSize: 20, fontWeight: "700" },
+  title: { color: COLORS.text, fontSize: 20, fontWeight: "700", textAlign: "center" },
+  durationLabel: { color: COLORS.textMuted, fontSize: 13 },
+  descText: { color: COLORS.textSoft, fontSize: 14, lineHeight: 20, textAlign: "center", marginBottom: 4 },
+  instructionBlock: { width: "100%", backgroundColor: COLORS.cardLighter, borderRadius: SIZES.radius, padding: 16, gap: 10 },
+  instructionTitle: { color: COLORS.textMuted, fontSize: 12, fontWeight: "600", marginBottom: 4 },
+  instructionRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  instructionStep: { color: COLORS.text, fontSize: 15, lineHeight: 22, flex: 1 },
+  stepDot: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 },
+  stepDotNum: { color: "#000", fontSize: 11, fontWeight: "800" },
   time: { fontSize: 56, fontWeight: "800", letterSpacing: 2 },
   progressBar: { width: "100%", height: 4, backgroundColor: COLORS.borderLight, borderRadius: 2 },
   progressFill: { height: 4, borderRadius: 2 },
-  stepCard: { width: "100%", backgroundColor: COLORS.cardLighter, borderRadius: SIZES.radius, padding: 16, gap: 8 },
-  stepLabel: { color: COLORS.textMuted, fontSize: 12 },
-  stepText: { color: COLORS.text, fontSize: 16, lineHeight: 24 },
-  stepNav: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  stepArrow: { color: COLORS.textMuted, fontSize: 14 },
+  stepsScroll: { width: "100%", maxHeight: 180 },
+  timerStepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 5 },
+  timerStepText: { color: COLORS.textSoft, fontSize: 13, lineHeight: 19, flex: 1 },
   btn: { width: "100%", paddingVertical: 16, borderRadius: SIZES.radiusRound, borderWidth: 1.5, alignItems: "center", marginTop: 4 },
   btnText: { color: COLORS.textSoft, fontSize: 16, fontWeight: "700" },
   skipText: { color: COLORS.textFaint, fontSize: SIZES.fontSM, marginTop: 8 },

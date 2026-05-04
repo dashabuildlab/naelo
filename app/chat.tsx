@@ -149,15 +149,30 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, userMsg]);
     setInput(""); setLoading(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 сек таймаут
+
     try {
       const res = await fetch(`${API_URL}/ai/chat`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, name: userName, score, goal, energy, context: buildContext(), streak, momentum, practices_today: practicesCount }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", text: data.reply || "Вибач, щось пішло не так" }]);
-    } catch (e) {
-      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", text: "Схоже є проблема зі з'єднанням. Спробуй ще раз" }]);
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      const isTimeout = e?.name === "AbortError";
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(), role: "assistant",
+        text: isTimeout
+          ? "Naelo не відповідає — схоже сервер перевантажено. Спробуй ще раз через хвилину 🙏"
+          : "Схоже є проблема зі з'єднанням. Перевір інтернет і спробуй ще раз",
+      }]);
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);

@@ -1,16 +1,17 @@
 // ~/luma/app/home.tsx
 // Головний екран — Вогник душі + питання дня + порада Naelo
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated, Dimensions, Image, Keyboard,
   ScrollView, StatusBar, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES, SHARED, scoreColor, CONTENT_PAD_H, CONTENT_MAX_W, isTablet } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 import KeyboardScreen from "../lib/KeyboardScreen";
@@ -88,6 +89,8 @@ export default function HomeScreen() {
   const [answerText, setAnswerText] = useState("");
   const [showThankYou, setShowThankYou] = useState(false);
   const [scoreChange, setScoreChange] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   // Анімації сфери
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -105,16 +108,37 @@ export default function HomeScreen() {
 
   useEffect(() => { logScreen("Home"); }, []);
 
-  useFocusEffect(useCallback(() => {
+  // Надійно відстежуємо uid — onAuthStateChanged спрацьовує після відновлення сесії Firebase
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        userIdRef.current = user.uid;
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        const id = session?.user?.id || null;
+        setUserId(id);
+        userIdRef.current = id;
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Завантажуємо раз при появі auth — не при кожному переході між вкладками
+  useEffect(() => {
     const load = async () => {
       const name = await AsyncStorage.getItem("naelo_name");
       if (name) setUserName(name);
 
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const uid = session?.user?.id || auth.currentUser?.uid;
-        if (uid) {
+      // Перевірити чи є відповідь сьогодні локально
+      const todayCheck = new Date().toISOString().split("T")[0];
+      const answeredLocal = await AsyncStorage.getItem("naelo_answered_today");
+      if (answeredLocal === todayCheck) setAnsweredToday(true);
 
+      try {
+        const uid = userIdRef.current || auth.currentUser?.uid ||
+          (await supabase.auth.getSession()).data.session?.user?.id;
+        if (uid) {
           const { data: profile } = await supabase
             .from("profiles")
             .select("score, name, streak")
@@ -122,20 +146,26 @@ export default function HomeScreen() {
             .single();
 
           if (profile) {
-            setScore(profile.score || 50);
+            const dbScore = profile.score || 50;
+            const cachedScore = Number(await AsyncStorage.getItem("naelo_score") || "0");
+            const s = Math.max(dbScore, cachedScore);
+            setScore(s);
             setStreak(profile.streak || 0);
             if (profile.name) setUserName(profile.name);
+            await AsyncStorage.setItem("naelo_score", String(s));
           }
 
-          // Перевірити чи є відповідь сьогодні
-          const today = new Date().toISOString().split("T")[0];
-          const { data: checkin } = await supabase
-            .from("daily_checkins")
-            .select("id")
-            .eq("user_id", uid)
-            .eq("date", today)
-            .maybeSingle();
-          setAnsweredToday(!!checkin);
+          // answeredToday: локальний флаг вже перевірено вище; якщо немає — перевіряємо DB
+          if (answeredLocal !== todayCheck) {
+            const { data: checkin } = await supabase
+              .from("daily_checkins")
+              .select("id")
+              .eq("user_id", uid)
+              .eq("date", todayCheck)
+              .maybeSingle();
+            setAnsweredToday(!!checkin);
+            if (checkin) await AsyncStorage.setItem("naelo_answered_today", todayCheck);
+          }
 
           // Синхронізувати дані онбордингу в профіль (один раз)
           if (profile && !profile.score) {
@@ -165,7 +195,38 @@ export default function HomeScreen() {
       } catch (e) {}
     };
     load();
-  }, []));
+  }, [userId]);
+
+  // Коли auth з'являється — синхронізувати локальний чекін у Supabase
+  useEffect(() => {
+    if (!userId) return;
+    const sync = async () => {
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const localRaw = await AsyncStorage.getItem("naelo_local_checkins");
+        if (!localRaw) return;
+        const local: any[] = JSON.parse(localRaw);
+        const todayEntry = local.find((e: any) => e.date === todayStr);
+        if (!todayEntry) return;
+        const { data: existing } = await supabase
+          .from("daily_checkins").select("id")
+          .eq("user_id", userId).eq("date", todayStr).maybeSingle();
+        if (!existing) {
+          await supabase.from("daily_checkins").upsert({
+            user_id: userId,
+            date: todayEntry.date,
+            note: todayEntry.note,
+            hints: null,
+            question: todayEntry.question,
+            energy: todayEntry.energy,
+            delta: todayEntry.delta,
+          }, { onConflict: "user_id,date" });
+          await supabase.from("profiles").update({ score: todayEntry.energy }).eq("id", userId);
+        }
+      } catch {}
+    };
+    sync();
+  }, [userId]);
 
   // Анімації сфери
   useEffect(() => {
@@ -258,21 +319,37 @@ export default function HomeScreen() {
     } catch (e) { /* fallback до local */ }
 
     const finalScore = Math.max(5, Math.min(95, score + delta));
+    const todayStr = new Date().toISOString().split("T")[0];
 
-    // Оновити UI з фінальним score
+    // Завжди зберігаємо локально — незалежно від авторизації
     setScore(finalScore);
     setScoreChange(delta);
+    await AsyncStorage.setItem("naelo_score", String(finalScore));
+    await AsyncStorage.setItem("naelo_answered_today", todayStr);
 
+    const localEntry = {
+      id: `local_${todayStr}`,
+      date: todayStr,
+      note: answerText.trim() || null,
+      hints: null,
+      question: dailyQ.q,
+      energy: finalScore,
+      delta,
+    };
+    const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
+    const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
+    await AsyncStorage.setItem(
+      "naelo_local_checkins",
+      JSON.stringify([localEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
+    );
+
+    // Якщо є uid — зберігаємо і в Supabase
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        const uid = session.user.id;
-        const today = new Date().toISOString().split("T")[0];
-
-        // Зберегти чекін
+      const uid = userIdRef.current || userId || auth.currentUser?.uid;
+      if (uid) {
         await supabase.from("daily_checkins").upsert({
           user_id: uid,
-          date: today,
+          date: todayStr,
           note: answerText.trim() || null,
           hints: null,
           question: dailyQ.q,
@@ -280,7 +357,6 @@ export default function HomeScreen() {
           delta,
         }, { onConflict: "user_id,date" });
 
-        // Розрахувати streak автоматично
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split("T")[0];
@@ -298,7 +374,7 @@ export default function HomeScreen() {
             : null;
           if (lastActivity === yesterdayStr) {
             newStreak = (profile.streak || 0) + 1;
-          } else if (lastActivity === today) {
+          } else if (lastActivity === todayStr) {
             newStreak = profile.streak || 1;
           }
         }
@@ -351,7 +427,7 @@ export default function HomeScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
         {/* Простір для сфери */}
-        <View style={{ height: height * 0.14 }} />
+        <View style={{ height: height * 0.22 }} />
 
         {/* Вогник душі */}
         <View style={styles.scoreBlock}>
@@ -445,11 +521,11 @@ const styles = StyleSheet.create({
   absoluteBg: { position: "absolute", top: 0, left: 0, width, height: width * 1.16 },
 
   // Сфера
-  glowCore: { position: "absolute", width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.glow, top: height * 0.17 - 20, left: (width - 40) / 2 },
-  sphereTap: { position: "absolute", top: height * 0.17 - 110, left: (width - 220) / 2, width: 220, height: 220, alignItems: "center", justifyContent: "center", zIndex: 10 },
-  pulseRing1: { position: "absolute", width: 70, height: 70, borderRadius: 35, borderWidth: 1.5, borderColor: COLORS.ring1, top: height * 0.17 - 35, left: (width - 70) / 2 },
-  pulseRing2: { position: "absolute", width: 130, height: 130, borderRadius: 65, borderWidth: 1, borderColor: COLORS.ring2, top: height * 0.17 - 65, left: (width - 130) / 2 },
-  pulseRing3: { position: "absolute", width: 200, height: 200, borderRadius: 100, borderWidth: 0.8, borderColor: COLORS.ring3, top: height * 0.17 - 100, left: (width - 200) / 2 },
+  glowCore: { position: "absolute", width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.glow, top: height * 0.25 - 20, left: (width - 40) / 2 },
+  sphereTap: { position: "absolute", top: height * 0.25 - 110, left: (width - 220) / 2, width: 220, height: 220, alignItems: "center", justifyContent: "center", zIndex: 10 },
+  pulseRing1: { position: "absolute", width: 70, height: 70, borderRadius: 35, borderWidth: 1.5, borderColor: COLORS.ring1, top: height * 0.25 - 35, left: (width - 70) / 2 },
+  pulseRing2: { position: "absolute", width: 130, height: 130, borderRadius: 65, borderWidth: 1, borderColor: COLORS.ring2, top: height * 0.25 - 65, left: (width - 130) / 2 },
+  pulseRing3: { position: "absolute", width: 200, height: 200, borderRadius: 100, borderWidth: 0.8, borderColor: COLORS.ring3, top: height * 0.25 - 100, left: (width - 200) / 2 },
 
   // Хедер
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, paddingTop: SIZES.paddingTop, paddingBottom: 8, zIndex: 10 },

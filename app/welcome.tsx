@@ -18,8 +18,9 @@ export default function WelcomeScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   const player = useVideoPlayer(require("../assets/screens/welcome.mp4"), p => {
-    p.loop   = true;
-    p.muted  = true;
+    p.loop  = true;
+    p.muted = true;
+    try { (p as any).audioMixingMode = "mixWithOthers"; } catch {}
     p.play();
   });
 

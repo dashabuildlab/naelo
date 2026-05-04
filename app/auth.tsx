@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
+import Constants from "expo-constants";
 
 import {
   GoogleAuthProvider,
@@ -28,6 +29,9 @@ import * as AppleAuthentication from "expo-apple-authentication";
 
 // Необхідно для завершення OAuth сесії після редіректу
 WebBrowser.maybeCompleteAuthSession();
+
+// В Expo Go OAuth через WebBrowser не працює (redirect_uri не зареєстровано у Google)
+const isExpoGo = Constants.appOwnership === "expo";
 
 // SHA-256 через вбудований crypto.subtle (Hermes SDK 54, не потребує native модулів)
 async function sha256hex(str: string): Promise<string> {
@@ -47,6 +51,7 @@ export default function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // ── Google Sign-In через Firebase (expo-auth-session) ────────────
@@ -76,6 +81,14 @@ export default function AuthScreen() {
   }, [response]);
 
   const handleGoogleSignIn = () => {
+    if (isExpoGo) {
+      Alert.alert(
+        "Google Sign-In",
+        "Вхід через Google доступний тільки в нативній збірці.\nСкористайся входом через Email або Apple ID.",
+        [{ text: "Зрозуміло" }]
+      );
+      return;
+    }
     promptAsync();
   };
 
@@ -253,14 +266,29 @@ export default function AuthScreen() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Пароль (мін. 6 символів)"
-            placeholderTextColor="rgba(255,255,255,0.35)"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Пароль (мін. 6 символів)"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(v => !v)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color="rgba(255,255,255,0.45)"
+              />
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.btnPrimary, loading && styles.btnDisabled]}
@@ -333,6 +361,9 @@ const styles = StyleSheet.create({
 
   // Inputs
   input:           { width: "100%", paddingVertical: 16, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 16 },
+  passwordRow:     { width: "100%", flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.06)" },
+  passwordInput:   { flex: 1, paddingVertical: 16, paddingHorizontal: 20, color: "#fff", fontSize: 16 },
+  eyeBtn:          { paddingHorizontal: 16, paddingVertical: 16 },
 
   // Email button
   btnPrimary:      { paddingVertical: 16, borderRadius: 30, borderWidth: 1.5, borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.1)", alignItems: "center" },

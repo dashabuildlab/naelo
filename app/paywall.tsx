@@ -10,6 +10,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { PurchasesPackage } from "react-native-purchases";
 import { getOfferings, purchasePackage, restorePurchases } from "../lib/purchases";
+import Constants from "expo-constants";
+
+const isExpoGo = Constants.appOwnership === "expo";
 import { COLORS, SIZES, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
 
 // ── Mock пакети для Expo Go / скріншотів ─────────────────────────
@@ -58,6 +61,15 @@ export default function PaywallScreen() {
 
   const handlePurchase = async () => {
     if (!selected || purchasing) return;
+    // В Expo Go покупки недоступні — показати пояснення
+    if (isExpoGo) {
+      Alert.alert(
+        "Покупки в Expo Go",
+        "Оформлення підписки доступне тільки в нативній збірці додатку (App Store / Google Play). Expo Go не підтримує платіжні операції.",
+        [{ text: "Зрозуміло" }]
+      );
+      return;
+    }
     setPurchasing(true);
     try {
       const ok = await purchasePackage(selected);
@@ -76,6 +88,10 @@ export default function PaywallScreen() {
 
   const handleRestore = async () => {
     if (purchasing) return;
+    if (isExpoGo) {
+      Alert.alert("Expo Go", "Відновлення покупок доступне тільки в нативній збірці.", [{ text: "OK" }]);
+      return;
+    }
     setPurchasing(true);
     try {
       const ok = await restorePurchases();
