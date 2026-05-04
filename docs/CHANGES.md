@@ -2,6 +2,31 @@
 
 ---
 
+## Сесія 2026-05-04 (збірка)
+
+### app.json — iOS CocoaPods Firebase помилка
+
+**Помилка при білді:**
+```
+[!] The following Swift pods cannot yet be integrated as static libraries:
+FirebaseCoreInternal depends upon GoogleUtilities (no modules)
+FirebaseCrashlytics depends upon GoogleDataTransport, GoogleUtilities, nanopb (no modules)
+FirebaseRemoteConfig depends upon FirebaseABTesting, GoogleUtilities (no modules)
+FirebaseSessions depends upon GoogleDataTransport, GoogleUtilities, nanopb (no modules)
+Exit error: exit status 1
+```
+
+**Причина:** Firebase Swift pods не можуть бути вбудовані як статичні бібліотеки без явного налаштування `useFrameworks`.
+
+**Рішення:** Додати в `expo-build-properties` в `app.json`:
+```json
+"ios": {
+  "useFrameworks": "static"
+}
+```
+
+---
+
 ## Сесія 2026-05-04
 
 ### auth.tsx — Видимість пароля

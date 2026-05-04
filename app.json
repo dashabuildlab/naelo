@@ -63,6 +63,9 @@
             "targetSdkVersion": 35,
             "compileSdkVersion": 36,
             "minSdkVersion": 26
+          },
+          "ios": {
+            "useFrameworks": "static"
           }
         }
       ]
