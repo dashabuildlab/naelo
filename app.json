@@ -57,6 +57,7 @@
       "expo-video",
       "./plugins/removeAudioPermission",
       "./plugins/withFirebaseStaticFramework",
+      "./plugins/withRemoveAdId",
       [
         "expo-build-properties",
         {
