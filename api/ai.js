@@ -26,7 +26,9 @@ router.post("/evaluate", async (req, res) => {
 });
 
 router.post("/chat", async (req, res) => {
-  const { message, name, score, goal, energy, context, streak, momentum, practices_today } = req.body;
+  const { message, name, score, goal, energy, context, is_premium } = req.body;
+
+  if (!message) return res.status(400).json({ error: "message required" });
 
   const systemPrompt = `Ти — Naelo, теплий AI провідник для внутрішнього розвитку.
 Ти спілкуєшся українською мовою. Ти як мудра подруга — підтримуєш, не осуджуєш.
@@ -36,6 +38,7 @@ ${context ? `=== Контекст користувача ===\n${context}\n======
 `Ім'я: ${name || "друг"}, Вогник душі: ${score || 50}%, Ціль: ${goal || "розвиток"}, Енергія: ${energy || "середня"}`}
 
 Відповідай коротко (2-4 речення), тепло і по суті.
+${is_premium ? "Аналізуй патерни в контексті та звертай увагу на повторювані теми." : ""}
 Якщо бачиш низький score або стрес — запропонуй конкретну міні-практику.
 Ніколи не ставиш медичних діагнозів. Ти — підтримка, не лікар.`;
 
@@ -44,11 +47,12 @@ ${context ? `=== Контекст користувача ===\n${context}\n======
       model: "claude-haiku-4-5",
       max_tokens: 400,
       system: systemPrompt,
-      messages: [{ role: "user", content: message }],
+      messages: [{ role: "user", content: String(message) }],
     });
 
     res.json({ reply: response.content[0].text });
   } catch (e) {
+    console.error("AI chat error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
