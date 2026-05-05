@@ -17,6 +17,7 @@ import { COLORS, SIZES, SHARED, SHADOWS, CONTENT_PAD_H, CONTENT_MAX_W } from "..
 import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
 import { logScreen, logEvent } from "../lib/analytics";
+import { checkPremium } from "../lib/purchases";
 
 const API_URL = "https://mynaelo.com/api";
 
@@ -208,6 +209,15 @@ export default function DreamPathScreen() {
       return;
     }
     setDreamTitleError(false);
+
+    // Premium gate: free — максимум 2 активні мрії
+    const premium = await checkPremium();
+    if (!premium && dreams.length >= 2) {
+      setShowAddDream(false);
+      router.push("/paywall");
+      return;
+    }
+
     // Якщо userId ще не завантажився — отримати зараз
     const uid = userId || await getUserId();
     if (!uid) {
@@ -397,7 +407,17 @@ export default function DreamPathScreen() {
             </View>
           ))}
 
-          {!loading && (
+          {!loading && dreams.length >= 2 && (
+            <TouchableOpacity
+              style={[styles.addDreamBtn, { borderColor: "rgba(255,179,0,0.3)", flexDirection: "row", justifyContent: "center", gap: 6 }]}
+              onPress={() => router.push("/paywall")}
+            >
+              <Ionicons name="diamond" size={16} color={COLORS.primary} />
+              <Text style={[styles.addDreamBtnText, { fontSize: 14 }]}>Більше 2 мрій — Premium</Text>
+            </TouchableOpacity>
+          )}
+
+          {!loading && dreams.length < 2 && (
             <TouchableOpacity style={styles.addDreamBtn} onPress={() => setShowAddDream(true)}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="star-outline" size={20} color={COLORS.primary} />

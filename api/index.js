@@ -29,6 +29,10 @@ const dreamsRouter = require("./dreams");
 app.use("/dreams", dreamsRouter);
 app.use("/api/dreams", dreamsRouter);
 
+const statsRouter = require("./stats");
+app.use("/stats", statsRouter);
+app.use("/api/stats", statsRouter);
+
 const webhookRouter = require("./webhook");
 app.use("/api/webhooks", webhookRouter);
 

@@ -45,6 +45,7 @@ export default function ChatScreen() {
   const [recentCheckins, setRecentCheckins] = useState("");
   const [giversDrains, setGiversDrains] = useState("");
   const [practicesCount, setPracticesCount] = useState(0);
+  const [isPremium, setIsPremium] = useState(false);
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [aiConsentGiven, setAiConsentGiven] = useState(false);
 
@@ -105,9 +106,10 @@ export default function ChatScreen() {
         if (profile.energy_level) setEnergy(profile.energy_level);
       }
 
-      // Контекст чекінів: Premium = 30 днів, Free = 7 днів
+      // Контекст чекінів: Premium = 30 днів / 15 чекінів, Free = 3 дні / 4 чекіни
       const premium = await checkPremium();
-      const contextDays = premium ? 30 : 7;
+      setIsPremium(premium);
+      const contextDays = premium ? 30 : 3;
       const contextSince = new Date();
       contextSince.setDate(contextSince.getDate() - contextDays);
       const { data: checkins } = await supabase
@@ -116,7 +118,7 @@ export default function ChatScreen() {
         .eq("user_id", uid)
         .gte("date", contextSince.toISOString().split("T")[0])
         .order("date", { ascending: false })
-        .limit(premium ? 15 : 5);
+        .limit(premium ? 15 : 4);
       if (checkins && checkins.length > 0) {
         setRecentCheckins(checkins.map(c => {
           const hints = c.hints ? JSON.parse(c.hints).join(", ") : "";
@@ -157,7 +159,7 @@ export default function ChatScreen() {
       const res = await fetch(`${API_URL}/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, name: userName, score, goal, energy, context: buildContext(), streak, momentum, practices_today: practicesCount }),
+        body: JSON.stringify({ message: text, name: userName, score, goal, energy, context: buildContext(), streak, momentum, practices_today: practicesCount, is_premium: isPremium }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

@@ -25,18 +25,19 @@ const MOCK_PACKAGES = [
 // ── Описи планів ─────────────────────────────────────────────────
 const FREE_FEATURES = [
   "Щоденні чекіни та Вогник душі",
-  "AI-чат (7 днів контексту)",
-  "3 практики в день",
-  "Навігатор мрій",
-  "Базова статистика (30 днів)",
+  "AI-гід (контекст 3-5 днів)",
+  "1 практика на день (базові техніки)",
+  "До 2 активних мрій",
+  "Статистика за 7 днів",
 ];
 
 const PREMIUM_FEATURES: { text: string; icon: string }[] = [
-  { text: "Повний AI-контекст (без ліміту)", icon: "infinite-outline" },
-  { text: "Необмежені практики в день",      icon: "flash"            },
-  { text: "Повна статистика та аналітика",   icon: "stats-chart"      },
-  { text: "Streak-відновлення раз на місяць", icon: "flame"           },
-  { text: "Все з безкоштовного плану",        icon: "checkmark-circle" },
+  { text: "AI-провідник: 30+ днів + виявлення патернів", icon: "infinite-outline" },
+  { text: "Безліміт практик + преміум-бібліотека",       icon: "flash"            },
+  { text: "Безліміт мрій + AI-декомпозиція",             icon: "star"             },
+  { text: "Повна статистика за весь час",                 icon: "stats-chart"      },
+  { text: "Streak-відновлення 1-2 рази на місяць",        icon: "flame"            },
+  { text: "Ексклюзивна естетика інтерфейсу",              icon: "color-palette"    },
 ];
 
 export default function PaywallScreen() {

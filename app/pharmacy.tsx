@@ -213,9 +213,9 @@ export default function PharmacyScreen() {
 
   const completePractice = async (practice: Practice) => {
     if (!userId) return;
-    // Premium gate: безкоштовно — 3 практики на день
+    // Premium gate: безкоштовно — 1 практика на день
     const premium = await checkPremium();
-    if (!premium && totalToday >= 3) {
+    if (!premium && totalToday >= 1) {
       router.push("/paywall");
       return;
     }
