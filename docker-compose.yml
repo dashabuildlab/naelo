@@ -1,0 +1,25 @@
+services:
+  web:
+    image: node:20-alpine
+    ports:
+      - "3007:3007"
+    volumes:
+      - ./dist:/app
+    command: npx serve /app -l 3007 -s
+    restart: unless-stopped
+
+  api:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./api:/app
+    command: node index.js
+    network_mode: host
+    env_file:
+      - ./root.env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

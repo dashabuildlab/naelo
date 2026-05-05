@@ -1,17 +1,17 @@
-const { createClient } = require("@supabase/supabase-js");
+const { Pool } = require("pg");
 
-const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
-);
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function calculateScore(userId) {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("score")
-    .eq("id", userId)
-    .single();
-  return profile?.score || 50;
+  try {
+    const r = await pool.query(
+      "SELECT score FROM profiles WHERE id = $1",
+      [userId]
+    );
+    return r.rows[0]?.score || 50;
+  } catch {
+    return 50;
+  }
 }
 
 module.exports = { calculateScore };
