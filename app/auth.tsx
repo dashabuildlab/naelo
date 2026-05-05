@@ -1,5 +1,5 @@
 // ~/luma/app/auth.tsx
-// Авторизація: Google, Apple, Email — через Firebase SDK
+// Авторизація: Google (нативний SDK), Apple, Email — через Firebase
 
 import { useEffect, useState } from "react";
 import {
@@ -10,8 +10,6 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
 import Constants from "expo-constants";
 
 import {
@@ -27,11 +25,19 @@ import { supabase } from "../lib/supabase";
 
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 
-// Необхідно для завершення OAuth сесії після редіректу
-WebBrowser.maybeCompleteAuthSession();
+// Нативний Google Sign-In — конфігурація один раз при запуску модуля
+GoogleSignin.configure({
+  // webClientId — потрібен Firebase для перевірки токена (Web OAuth 2.0 client)
+  webClientId: "839119458174-eehh9uo3qikrki66cs32fi5cha2ee2gt.apps.googleusercontent.com",
+  // iosClientId — нативний iOS client (з Google Console)
+  iosClientId: "839119458174-enj35mto47av9hqh8cttrdrqh0ljb4t2.apps.googleusercontent.com",
+  offlineAccess: false,
+  scopes: ["profile", "email"],
+});
 
-// В Expo Go OAuth через WebBrowser не працює (redirect_uri не зареєстровано у Google)
+// В Expo Go нативні модулі не доступні
 const isExpoGo = Constants.appOwnership === "expo";
 
 export default function AuthScreen() {
@@ -42,42 +48,47 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // ── Google Sign-In через Firebase (expo-auth-session) ────────────
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId:     "839119458174-eehh9uo3qikrki66cs32fi5cha2ee2gt.apps.googleusercontent.com",
-    iosClientId:     "839119458174-enj35mto47av9hqh8cttrdrqh0ljb4t2.apps.googleusercontent.com",
-    androidClientId: "839119458174-20hfm88p5c0t00mnf85j2m6cnc5povo3.apps.googleusercontent.com",
-  });
-
-  useEffect(() => {
-    if (response?.type === "success") {
-      const idToken = response.authentication?.idToken;
-      if (idToken) {
-        setLoading(true);
-        const credential = GoogleAuthProvider.credential(idToken);
-        signInWithCredential(auth, credential)
-          .then(async (result) => {
-            await syncProfile(result.user.uid, result.user.displayName || "");
-            router.replace("/home");
-          })
-          .catch((e) => Alert.alert("Помилка", e.message))
-          .finally(() => setLoading(false));
-      }
-    } else if (response?.type === "error") {
-      Alert.alert("Помилка", response.error?.message || "Google Sign-In не вдалося");
-    }
-  }, [response]);
-
-  const handleGoogleSignIn = () => {
+  // ── Google Sign-In (нативний SDK) ────────────────────────────────
+  const handleGoogleSignIn = async () => {
     if (isExpoGo) {
       Alert.alert(
         "Google Sign-In",
-        "Вхід через Google доступний тільки в нативній збірці.\nСкористайся входом через Email або Apple ID.",
+        "Вхід через Google доступний тільки в нативній збірці (EAS / TestFlight).",
         [{ text: "Зрозуміло" }]
       );
       return;
     }
-    promptAsync();
+    setLoading(true);
+    try {
+      // Перевіряємо Google Play Services (обов'язково на Android)
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      // Нативний діалог вибору акаунту Google
+      const response = await GoogleSignin.signIn();
+
+      // API v13+: response.data.idToken; старіший — response.idToken
+      const idToken: string | null =
+        (response as any)?.data?.idToken ?? (response as any)?.idToken ?? null;
+
+      if (!idToken) throw new Error("Не вдалось отримати Google ID token");
+
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      await syncProfile(result.user.uid, result.user.displayName || "");
+      router.replace("/home");
+    } catch (e: any) {
+      if (e.code === statusCodes.SIGN_IN_CANCELLED) {
+        // Користувач закрив діалог — нічого не робимо
+      } else if (e.code === statusCodes.IN_PROGRESS) {
+        // Вхід вже виконується
+      } else if (e.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert("Помилка", "Google Play Services недоступні на цьому пристрої");
+      } else {
+        Alert.alert("Помилка входу через Google", e.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── Apple Sign-In (тільки iOS) ───────────────────────────────────
@@ -85,7 +96,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       const rawNonce    = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      // expo-crypto гарантує надійний SHA-256 в будь-якому середовищі (Hermes / JSC)
+      // expo-crypto гарантує надійний SHA-256 в будь-якому середовищі
       const hashedNonce = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         rawNonce,
@@ -169,12 +180,7 @@ export default function AuthScreen() {
   const syncProfile = async (uid: string, displayName: string) => {
     const name = displayName || await AsyncStorage.getItem("naelo_name") || "";
     const score = Number(await AsyncStorage.getItem("naelo_score") || 50);
-    await supabase.from("profiles").upsert({
-      id: uid,
-      name,
-      score,
-      streak: 0,
-    });
+    await supabase.from("profiles").upsert({ id: uid, name, score, streak: 0 });
   };
 
   return (
@@ -295,7 +301,6 @@ export default function AuthScreen() {
             }
           </TouchableOpacity>
 
-          {/* Забули пароль? — тільки в режимі login */}
           {mode === "login" && (
             <TouchableOpacity
               style={styles.btnForgot}
@@ -310,7 +315,6 @@ export default function AuthScreen() {
             <Text style={styles.skipText}>Пропустити поки що →</Text>
           </TouchableOpacity>
 
-          {/* Privacy Policy & Terms */}
           <View style={styles.privacyRow}>
             <Text style={styles.privacyText}>
               Використовуючи Naelo, ти погоджуєшся з{" "}
@@ -333,31 +337,26 @@ const styles = StyleSheet.create({
   subtitle:        { color: "rgba(255,255,255,0.75)", fontSize: 15, marginTop: 8, marginBottom: 32, textAlign: "center" },
   form:            { width: "100%", maxWidth: 460, gap: 12 },
 
-  // Social buttons
   btnSocial:       { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 15, borderRadius: 30, backgroundColor: "#4285F4" },
   btnSocialText:   { color: "#fff", fontSize: 15, fontWeight: "700" },
   btnApple:        { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 15, borderRadius: 30, backgroundColor: "#fff" },
   btnAppleText:    { color: "#000", fontSize: 15, fontWeight: "700" },
 
-  // Divider
   divider:         { flexDirection: "row", alignItems: "center", gap: 12 },
   dividerLine:     { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.1)" },
   dividerText:     { color: "rgba(255,255,255,0.5)", fontSize: 13 },
 
-  // Mode toggle
   modeRow:         { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 30, padding: 3 },
   modeBtn:         { flex: 1, paddingVertical: 10, borderRadius: 30, alignItems: "center" },
   modeBtnActive:   { backgroundColor: "#FFB300" },
   modeBtnText:     { color: "rgba(255,255,255,0.65)", fontSize: 14, fontWeight: "600" },
   modeBtnTextActive: { color: "#000", fontWeight: "700" },
 
-  // Inputs
   input:           { width: "100%", paddingVertical: 16, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 16 },
   passwordRow:     { width: "100%", flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(255,255,255,0.06)" },
   passwordInput:   { flex: 1, paddingVertical: 16, paddingHorizontal: 20, color: "#fff", fontSize: 16 },
   eyeBtn:          { paddingHorizontal: 16, paddingVertical: 16 },
 
-  // Email button
   btnPrimary:      { paddingVertical: 16, borderRadius: 30, borderWidth: 1.5, borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.1)", alignItems: "center" },
   btnDisabled:     { opacity: 0.5 },
   btnText:         { color: "#FFB300", fontSize: 16, fontWeight: "700" },
