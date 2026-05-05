@@ -25,20 +25,30 @@ import { supabase } from "../lib/supabase";
 
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
-
-// Нативний Google Sign-In — конфігурація один раз при запуску модуля
-GoogleSignin.configure({
-  // webClientId — потрібен Firebase для перевірки токена (Web OAuth 2.0 client)
-  webClientId: "839119458174-eehh9uo3qikrki66cs32fi5cha2ee2gt.apps.googleusercontent.com",
-  // iosClientId — нативний iOS client (з Google Console)
-  iosClientId: "839119458174-enj35mto47av9hqh8cttrdrqh0ljb4t2.apps.googleusercontent.com",
-  offlineAccess: false,
-  scopes: ["profile", "email"],
-});
 
 // В Expo Go нативні модулі не доступні
 const isExpoGo = Constants.appOwnership === "expo";
+
+// GoogleSignin завантажується динамічно — статичний import одразу краша в Expo Go
+// бо TurboModule RNGoogleSignin не зареєстрований
+let GoogleSignin: any = null;
+let statusCodes: any = { SIGN_IN_CANCELLED: "SIGN_IN_CANCELLED", IN_PROGRESS: "IN_PROGRESS", PLAY_SERVICES_NOT_AVAILABLE: "PLAY_SERVICES_NOT_AVAILABLE" };
+
+if (!isExpoGo) {
+  try {
+    const gsi = require("@react-native-google-signin/google-signin");
+    GoogleSignin = gsi.GoogleSignin;
+    statusCodes  = gsi.statusCodes;
+    GoogleSignin.configure({
+      webClientId: "839119458174-eehh9uo3qikrki66cs32fi5cha2ee2gt.apps.googleusercontent.com",
+      iosClientId: "839119458174-enj35mto47av9hqh8cttrdrqh0ljb4t2.apps.googleusercontent.com",
+      offlineAccess: false,
+      scopes: ["profile", "email"],
+    });
+  } catch (e) {
+    console.warn("GoogleSignin native module not available:", e);
+  }
+}
 
 export default function AuthScreen() {
   const router = useRouter();
