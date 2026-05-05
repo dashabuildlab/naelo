@@ -1,5 +1,5 @@
 // ~/luma/app/pharmacy.tsx
-// Енергетична аптечка — з трекінгом практик в Supabase
+// Енергетична аптечка — з трекінгом практик
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
@@ -9,8 +9,9 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
+
+const API_URL = "https://mynaelo.com/api";
 import { COLORS, SIZES, SHARED, CONTENT_PAD_H, CONTENT_MAX_W, isTablet } from "../lib/theme";
 import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
@@ -196,17 +197,16 @@ export default function PharmacyScreen() {
 
   const loadStats = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id || auth.currentUser?.uid || null;
+      const uid = auth.currentUser?.uid || null;
       setUserId(uid);
       if (!uid) return;
-      const today = new Date().toISOString().split("T")[0];
-      const { data: logs } = await supabase.from("practice_logs").select("practice_id, category").eq("user_id", uid).gte("completed_at", today + "T00:00:00");
-      if (logs) {
+      const resp = await fetch(`${API_URL}/practices/today?user_id=${uid}`);
+      const data = await resp.json();
+      if (data.logs) {
         const counts: Record<string, number> = {};
-        logs.forEach((l) => { counts[l.practice_id] = (counts[l.practice_id] || 0) + 1; });
+        data.logs.forEach((l: any) => { counts[l.practice_id] = (counts[l.practice_id] || 0) + 1; });
         setCompletedToday(counts);
-        setTotalToday(logs.length);
+        setTotalToday(data.logs.length);
       }
     } catch (e) {}
   };
@@ -219,11 +219,20 @@ export default function PharmacyScreen() {
       router.push("/paywall");
       return;
     }
-    await supabase.from("practice_logs").insert({ user_id: userId, practice_id: practice.id, category: activeCategory, duration_sec: practice.durationSec });
-    const { data: profile } = await supabase.from("profiles").select("score").eq("id", userId).single();
-    if (profile) {
-      const newScore = Math.min((profile.score || 0) + 2, 100);
-      await supabase.from("profiles").update({ score: newScore }).eq("id", userId);
+    await fetch(`${API_URL}/practices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, practice_id: practice.id, category: activeCategory, duration_sec: practice.durationSec }),
+    });
+    const profileResp = await fetch(`${API_URL}/profile?user_id=${userId}`);
+    const profileData = await profileResp.json();
+    if (profileData.profile) {
+      const newScore = Math.min((profileData.profile.score || 0) + 2, 100);
+      await fetch(`${API_URL}/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, score: newScore }),
+      });
       await AsyncStorage.setItem("naelo_score", String(newScore));
     }
     setCompletedToday((prev) => ({ ...prev, [practice.id]: (prev[practice.id] || 0) + 1 }));

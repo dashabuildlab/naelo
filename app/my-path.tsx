@@ -9,8 +9,9 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
+
+const API_URL = "https://mynaelo.com/api";
 import { COLORS, SIZES, SHARED, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
 import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
@@ -59,16 +60,10 @@ export default function MyPathScreen() {
 
   // Слухаємо auth — коли uid з'являється, оновлюємо і стейт (для useFocusEffect), і ref
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        userIdRef.current = user.uid;
-        setUserId(user.uid);
-      } else {
-        const { data: { session } } = await supabase.auth.getSession();
-        const id = session?.user?.id || null;
-        userIdRef.current = id;
-        setUserId(id);
-      }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      const id = user?.uid || null;
+      userIdRef.current = id;
+      setUserId(id);
     });
     return unsub;
   }, []);
@@ -115,29 +110,18 @@ export default function MyPathScreen() {
     const load = async () => {
       setLoading(true);
       try {
-        const uid = userIdRef.current || auth.currentUser?.uid ||
-          (await supabase.auth.getSession()).data.session?.user?.id;
+        const uid = userIdRef.current || auth.currentUser?.uid;
 
         if (uid) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("score")
-            .eq("id", uid)
-            .single();
+          const profileResp = await fetch(`${API_URL}/profile?user_id=${uid}`);
+          const profileData = await profileResp.json();
           const cachedScore = Number(await AsyncStorage.getItem("naelo_score") || "0");
-          const dbScore = profile?.score || 0;
+          const dbScore = profileData.profile?.score || 0;
           setCurrentScore(Math.max(dbScore, cachedScore) || 50);
 
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const { data: entries } = await supabase
-            .from("daily_checkins")
-            .select("*")
-            .eq("user_id", uid)
-            .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
-            .order("date", { ascending: false });
-
-          if (entries) setCheckins(entries);
+          const checkinsResp = await fetch(`${API_URL}/checkins?user_id=${uid}&days=30`);
+          const checkinsData = await checkinsResp.json();
+          if (checkinsData.checkins) setCheckins(checkinsData.checkins);
         } else {
           // Не авторизований — score і чекіни з локального кешу
           const cached = await AsyncStorage.getItem("naelo_score");

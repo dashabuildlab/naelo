@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
 import { COLORS, SIZES, CONTENT_PAD_H, CONTENT_MAX_W, isTablet } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
@@ -95,11 +94,12 @@ export default function ChatScreen() {
     } catch {}
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id || auth.currentUser?.uid;
+      const uid = auth.currentUser?.uid;
       if (!uid) return;
-      const { data: profile } = await supabase.from("profiles").select("score, streak, momentum, name, goal, energy_level").eq("id", uid).single();
-      if (profile) {
+      const profileResp = await fetch(`${API_URL}/profile?user_id=${uid}`);
+      const profileData = await profileResp.json();
+      if (profileData.profile) {
+        const profile = profileData.profile;
         setScore(profile.score || 0); setStreak(profile.streak || 0); setMomentum(profile.momentum || 0);
         if (profile.name) setUserName(profile.name);
         if (profile.goal) setGoal(profile.goal);
@@ -110,25 +110,19 @@ export default function ChatScreen() {
       const premium = await checkPremium();
       setIsPremium(premium);
       const contextDays = premium ? 30 : 3;
-      const contextSince = new Date();
-      contextSince.setDate(contextSince.getDate() - contextDays);
-      const { data: checkins } = await supabase
-        .from("daily_checkins")
-        .select("date, question, note, hints, energy, delta")
-        .eq("user_id", uid)
-        .gte("date", contextSince.toISOString().split("T")[0])
-        .order("date", { ascending: false })
-        .limit(premium ? 15 : 4);
-      if (checkins && checkins.length > 0) {
-        setRecentCheckins(checkins.map(c => {
+      const checkinsResp = await fetch(`${API_URL}/checkins?user_id=${uid}&days=${contextDays}`);
+      const checkinsData = await checkinsResp.json();
+      const checkins = (checkinsData.checkins || []).slice(0, premium ? 15 : 4);
+      if (checkins.length > 0) {
+        setRecentCheckins(checkins.map((c: any) => {
           const hints = c.hints ? JSON.parse(c.hints).join(", ") : "";
           return `${c.date} (${c.energy}%): ${c.note || hints || "тап"}`;
         }).join(" | "));
       }
 
-      const today = new Date().toISOString().split("T")[0];
-      const { data: practices } = await supabase.from("practice_logs").select("id").eq("user_id", uid).gte("completed_at", today + "T00:00:00");
-      setPracticesCount(practices?.length || 0);
+      const practicesResp = await fetch(`${API_URL}/practices/today?user_id=${uid}`);
+      const practicesData = await practicesResp.json();
+      setPracticesCount(practicesData.logs?.length || 0);
     } catch (e) {}
   };
 

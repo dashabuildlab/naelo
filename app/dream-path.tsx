@@ -10,7 +10,6 @@ import {
 import { VideoView, useVideoPlayer } from "expo-video";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useRouter, useFocusEffect } from "expo-router";
-import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES, SHARED, SHADOWS, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
@@ -152,10 +151,7 @@ export default function DreamPathScreen() {
       if (user) {
         setUserId(user.uid);
       } else {
-        // Firebase не має сесії — перевірити Supabase
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          setUserId(session?.user?.id || null);
-        });
+        setUserId(null);
       }
     });
     return unsubscribe;
@@ -178,12 +174,7 @@ export default function DreamPathScreen() {
     ])).start();
   }, []);
 
-  const getUserId = async (): Promise<string | null> => {
-    // Спочатку Firebase, потім Supabase
-    if (auth.currentUser?.uid) return auth.currentUser.uid;
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.user?.id || null;
-  };
+  const getUserId = (): string | null => auth.currentUser?.uid || null;
 
   const loadDreams = async () => {
     setLoading(true);

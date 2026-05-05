@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "../lib/supabase";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES, SHARED, scoreColor, CONTENT_PAD_H, CONTENT_MAX_W, isTablet } from "../lib/theme";
@@ -110,16 +109,10 @@ export default function HomeScreen() {
 
   // Надійно відстежуємо uid — onAuthStateChanged спрацьовує після відновлення сесії Firebase
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUserId(user.uid);
-        userIdRef.current = user.uid;
-      } else {
-        const { data: { session } } = await supabase.auth.getSession();
-        const id = session?.user?.id || null;
-        setUserId(id);
-        userIdRef.current = id;
-      }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      const id = user?.uid || null;
+      setUserId(id);
+      userIdRef.current = id;
     });
     return unsub;
   }, []);
@@ -136,14 +129,11 @@ export default function HomeScreen() {
       if (answeredLocal === todayCheck) setAnsweredToday(true);
 
       try {
-        const uid = userIdRef.current || auth.currentUser?.uid ||
-          (await supabase.auth.getSession()).data.session?.user?.id;
+        const uid = userIdRef.current || auth.currentUser?.uid;
         if (uid) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("score, name, streak")
-            .eq("id", uid)
-            .single();
+          const profileResp = await fetch(`${API_URL}/profile?user_id=${uid}`);
+          const profileData = await profileResp.json();
+          const profile = profileData.profile;
 
           if (profile) {
             const dbScore = profile.score || 50;
@@ -157,14 +147,10 @@ export default function HomeScreen() {
 
           // answeredToday: локальний флаг вже перевірено вище; якщо немає — перевіряємо DB
           if (answeredLocal !== todayCheck) {
-            const { data: checkin } = await supabase
-              .from("daily_checkins")
-              .select("id")
-              .eq("user_id", uid)
-              .eq("date", todayCheck)
-              .maybeSingle();
-            setAnsweredToday(!!checkin);
-            if (checkin) await AsyncStorage.setItem("naelo_answered_today", todayCheck);
+            const checkinResp = await fetch(`${API_URL}/checkins/today?user_id=${uid}`);
+            const checkinData = await checkinResp.json();
+            setAnsweredToday(!!checkinData.exists);
+            if (checkinData.exists) await AsyncStorage.setItem("naelo_answered_today", todayCheck);
           }
 
           // Синхронізувати дані онбордингу в профіль (один раз)
@@ -177,16 +163,21 @@ export default function HomeScreen() {
             const concernsTextRaw = await AsyncStorage.getItem("naelo_concerns_text");
             const giversTextRaw = await AsyncStorage.getItem("naelo_givers_text");
             const giversRaw = await AsyncStorage.getItem("naelo_givers");
-            await supabase.from("profiles").update({
-              goal: goalRaw || "",
-              energy_drains: drainsRaw || "[]",
-              drains_text: drainsTextRaw || "",
-              concerns: concernsRaw || "[]",
-              concerns_text: concernsTextRaw || "",
-              givers_text: giversTextRaw || "",
-              energy_givers: giversRaw || "[]",
-              score: scoreRaw ? Number(scoreRaw) : 50,
-            }).eq("id", uid);
+            await fetch(`${API_URL}/profile`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                user_id: uid,
+                goal: goalRaw || "",
+                energy_drains: drainsRaw || "[]",
+                drains_text: drainsTextRaw || "",
+                concerns: concernsRaw || "[]",
+                concerns_text: concernsTextRaw || "",
+                givers_text: giversTextRaw || "",
+                energy_givers: giversRaw || "[]",
+                score: scoreRaw ? Number(scoreRaw) : 50,
+              }),
+            });
           }
         } else {
           const savedScore = await AsyncStorage.getItem("naelo_score");
@@ -197,7 +188,7 @@ export default function HomeScreen() {
     load();
   }, [userId]);
 
-  // Коли auth з'являється — синхронізувати локальний чекін у Supabase
+  // Коли auth з'являється — синхронізувати локальний чекін у DB
   useEffect(() => {
     if (!userId) return;
     const sync = async () => {
@@ -208,20 +199,27 @@ export default function HomeScreen() {
         const local: any[] = JSON.parse(localRaw);
         const todayEntry = local.find((e: any) => e.date === todayStr);
         if (!todayEntry) return;
-        const { data: existing } = await supabase
-          .from("daily_checkins").select("id")
-          .eq("user_id", userId).eq("date", todayStr).maybeSingle();
-        if (!existing) {
-          await supabase.from("daily_checkins").upsert({
-            user_id: userId,
-            date: todayEntry.date,
-            note: todayEntry.note,
-            hints: null,
-            question: todayEntry.question,
-            energy: todayEntry.energy,
-            delta: todayEntry.delta,
-          }, { onConflict: "user_id,date" });
-          await supabase.from("profiles").update({ score: todayEntry.energy }).eq("id", userId);
+        const existsResp = await fetch(`${API_URL}/checkins/today?user_id=${userId}`);
+        const existsData = await existsResp.json();
+        if (!existsData.exists) {
+          await fetch(`${API_URL}/checkins`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: userId,
+              date: todayEntry.date,
+              note: todayEntry.note,
+              hints: null,
+              question: todayEntry.question,
+              energy: todayEntry.energy,
+              delta: todayEntry.delta,
+            }),
+          });
+          await fetch(`${API_URL}/profile`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId, score: todayEntry.energy }),
+          });
         }
       } catch {}
     };
@@ -343,29 +341,31 @@ export default function HomeScreen() {
       JSON.stringify([localEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
     );
 
-    // Якщо є uid — зберігаємо і в Supabase
+    // Якщо є uid — зберігаємо і в DB
     try {
       const uid = userIdRef.current || userId || auth.currentUser?.uid;
       if (uid) {
-        await supabase.from("daily_checkins").upsert({
-          user_id: uid,
-          date: todayStr,
-          note: answerText.trim() || null,
-          hints: null,
-          question: dailyQ.q,
-          energy: finalScore,
-          delta,
-        }, { onConflict: "user_id,date" });
+        await fetch(`${API_URL}/checkins`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: uid,
+            date: todayStr,
+            note: answerText.trim() || null,
+            hints: null,
+            question: dailyQ.q,
+            energy: finalScore,
+            delta,
+          }),
+        });
 
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("streak, last_activity")
-          .eq("id", uid)
-          .single();
+        const profileResp = await fetch(`${API_URL}/profile?user_id=${uid}`);
+        const profileData = await profileResp.json();
+        const profile = profileData.profile;
 
         let newStreak = 1;
         if (profile) {
@@ -379,12 +379,17 @@ export default function HomeScreen() {
           }
         }
 
-        await supabase.from("profiles").update({
-          score: finalScore,
-          streak: newStreak,
-          momentum: delta,
-          last_activity: new Date().toISOString(),
-        }).eq("id", uid);
+        await fetch(`${API_URL}/profile`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: uid,
+            score: finalScore,
+            streak: newStreak,
+            momentum: delta,
+            last_activity: new Date().toISOString(),
+          }),
+        });
       }
     } catch (e) {}
 

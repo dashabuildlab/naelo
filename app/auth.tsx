@@ -21,7 +21,8 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { supabase } from "../lib/supabase";
+
+const API_URL = "https://mynaelo.com/api";
 
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Crypto from "expo-crypto";
@@ -186,11 +187,17 @@ export default function AuthScreen() {
     }
   };
 
-  // ── Синхронізація профілю в Supabase ────────────────────────────
+  // ── Синхронізація профілю ────────────────────────────────────────
   const syncProfile = async (uid: string, displayName: string) => {
     const name = displayName || await AsyncStorage.getItem("naelo_name") || "";
     const score = Number(await AsyncStorage.getItem("naelo_score") || 50);
-    await supabase.from("profiles").upsert({ id: uid, name, score, streak: 0 });
+    try {
+      await fetch(`${API_URL}/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: uid, name, score, streak: 0 }),
+      });
+    } catch {}
   };
 
   return (

@@ -39,6 +39,18 @@ const statsRouter = require("./stats");
 app.use("/stats", statsRouter);
 app.use("/api/stats", statsRouter);
 
+const profileRouter = require("./profile");
+app.use("/profile", profileRouter);
+app.use("/api/profile", profileRouter);
+
+const checkinsRouter = require("./checkins");
+app.use("/checkins", checkinsRouter);
+app.use("/api/checkins", checkinsRouter);
+
+const practicesRouter = require("./practices");
+app.use("/practices", practicesRouter);
+app.use("/api/practices", practicesRouter);
+
 const webhookRouter = require("./webhook");
 app.use("/api/webhooks", webhookRouter);
 

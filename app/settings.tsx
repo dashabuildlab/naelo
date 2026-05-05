@@ -10,7 +10,8 @@ import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteUser, signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { supabase } from "../lib/supabase";
+
+const API_URL = "https://mynaelo.com/api";
 import { COLORS, SIZES, SHARED, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../lib/Header";
@@ -64,7 +65,11 @@ export default function SettingsScreen() {
       await AsyncStorage.setItem("naelo_name", name.trim());
       const uid = auth.currentUser?.uid;
       if (uid) {
-        await supabase.from("profiles").update({ name: name.trim() }).eq("id", uid);
+        await fetch(`${API_URL}/profile`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: uid, name: name.trim() }),
+        });
       }
       setEditingName(false);
     } catch (e) {}
@@ -108,7 +113,6 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await firebaseSignOut(auth);
-              await supabase.auth.signOut();
               await AsyncStorage.multiRemove([
                 "naelo_onboarded", "naelo_name", "naelo_score",
                 "naelo_goal", "naelo_energy", "naelo_givers",
@@ -137,10 +141,7 @@ export default function SettingsScreen() {
             try {
               const uid = auth.currentUser?.uid;
               if (uid) {
-                await supabase.from("daily_checkins").delete().eq("user_id", uid);
-                await supabase.from("practice_logs").delete().eq("user_id", uid);
-                await supabase.from("profiles").delete().eq("id", uid);
-                await supabase.auth.signOut();
+                await fetch(`${API_URL}/profile?user_id=${uid}`, { method: "DELETE" }).catch(() => {});
               }
               if (auth.currentUser) {
                 await deleteUser(auth.currentUser);
