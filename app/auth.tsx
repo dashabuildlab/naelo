@@ -26,25 +26,13 @@ import { auth } from "../lib/firebase";
 import { supabase } from "../lib/supabase";
 
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 
 // Необхідно для завершення OAuth сесії після редіректу
 WebBrowser.maybeCompleteAuthSession();
 
 // В Expo Go OAuth через WebBrowser не працює (redirect_uri не зареєстровано у Google)
 const isExpoGo = Constants.appOwnership === "expo";
-
-// SHA-256 через вбудований crypto.subtle (Hermes SDK 54, не потребує native модулів)
-async function sha256hex(str: string): Promise<string> {
-  try {
-    const data = new TextEncoder().encode(str);
-    const buf  = await globalThis.crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(buf))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
-  } catch {
-    return str; // fallback (Apple auth може не спрацювати без SHA-256)
-  }
-}
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -97,7 +85,11 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       const rawNonce    = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      const hashedNonce = await sha256hex(rawNonce);
+      // expo-crypto гарантує надійний SHA-256 в будь-якому середовищі (Hermes / JSC)
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
       const apple = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
