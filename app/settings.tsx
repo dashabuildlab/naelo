@@ -282,7 +282,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <View style={styles.versionRow}>
-            <Text style={styles.versionText}>Naelo v1.0.2</Text>
+            <Text style={styles.versionText}>Naelo v1.5.0</Text>
           </View>
         </View>
 
