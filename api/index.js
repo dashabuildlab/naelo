@@ -9,7 +9,13 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.text({ type: "text/plain", limit: "1mb" }));
 
 // Static HTML pages (privacy, policy, delete-account)
-app.use(express.static(path.join(__dirname, "../assets")));
+const ASSETS_DIR = process.env.ASSETS_DIR || path.join(__dirname, "../assets");
+app.use(express.static(ASSETS_DIR));
+
+// Landing page
+app.get("/", (req, res) => {
+  res.send(`<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Naelo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0812;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif}.c{text-align:center;gap:12px;display:flex;flex-direction:column}h1{font-size:2rem;font-weight:800}p{color:rgba(255,255,255,0.45);font-size:14px}</style></head><body><div class="c"><h1>✨ Naelo</h1><p>Твій провідник внутрішнього розвитку</p></div></body></html>`);
+});
 
 app.get("/health", (req, res) => {
   res.json({ ok: true, app: "naelo-api", ts: Date.now() });

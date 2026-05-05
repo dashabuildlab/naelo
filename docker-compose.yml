@@ -4,7 +4,7 @@ services:
     ports:
       - "3007:3007"
     volumes:
-      - ./dist:/app
+      - ./site:/app
     command: npx serve /app -l 3007 -s
     restart: unless-stopped
 
@@ -13,10 +13,13 @@ services:
     working_dir: /app
     volumes:
       - ./api:/app
+      - ./assets:/assets
     command: node index.js
     network_mode: host
     env_file:
       - ./root.env
+    environment:
+      - ASSETS_DIR=/assets
     restart: unless-stopped
     logging:
       driver: "json-file"
