@@ -2,7 +2,7 @@
   "expo": {
     "name": "naelo",
     "slug": "naelo",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "naelo",
@@ -11,7 +11,7 @@
     "android": {
       "package": "com.mynaelo.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 6,
+      "versionCode": 7,
       "targetSdkVersion": 35,
       "compileSdkVersion": 36,
       "minSdkVersion": 26,
