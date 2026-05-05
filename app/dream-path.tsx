@@ -119,6 +119,7 @@ export default function DreamPathScreen() {
   const [newDreamWhy, setNewDreamWhy] = useState("");
   const [newDreamDeadline, setNewDreamDeadline] = useState("");
   const [newStepTitle, setNewStepTitle] = useState("");
+  const [dreamTitleError, setDreamTitleError] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.3)).current;
@@ -203,9 +204,10 @@ export default function DreamPathScreen() {
 
   const addDream = async () => {
     if (!newDreamTitle.trim()) {
-      Alert.alert("Введи назву мрії", "Поле 'Яка твоя мрія?' є обов'язковим");
+      setDreamTitleError(true);
       return;
     }
+    setDreamTitleError(false);
     // Якщо userId ще не завантажився — отримати зараз
     const uid = userId || await getUserId();
     if (!uid) {
@@ -221,7 +223,7 @@ export default function DreamPathScreen() {
       const json = await res.json();
       if (json.dream) {
         setDreams((prev) => [...prev, { id: json.dream.id, title: json.dream.title, why: newDreamWhy.trim(), deadline: newDreamDeadline.trim(), steps: [], verified: false }]);
-        setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setShowAddDream(false);
+        setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setDreamTitleError(false); setShowAddDream(false);
       }
     } catch (e) {
       console.error(e);
@@ -414,7 +416,7 @@ export default function DreamPathScreen() {
       </ScrollView>
 
       {/* Модаль додавання мрії */}
-      <Modal visible={showAddDream} animationType="slide" transparent onRequestClose={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); }}>
+      <Modal visible={showAddDream} animationType="slide" transparent onRequestClose={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setDreamTitleError(false); }}>
         <KeyboardAwareScrollView contentContainerStyle={SHARED.modalOverlay as any} bottomOffset={20} keyboardShouldPersistTaps="handled">
           <View style={SHARED.modalContainer as any}>
             {/* Заголовок з кнопкою закриття */}
@@ -423,11 +425,25 @@ export default function DreamPathScreen() {
                 <Ionicons name="star-outline" size={22} color={COLORS.primary} />
                 <Text style={modal.title}>Нова мрія</Text>
               </View>
-              <TouchableOpacity onPress={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setDreamTitleError(false); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
-            <TextInput style={SHARED.input} placeholder="Яка твоя мрія? *" placeholderTextColor={COLORS.textPlaceholder} value={newDreamTitle} onChangeText={setNewDreamTitle} autoFocus />
+            <View>
+              <TextInput
+                style={[SHARED.input, dreamTitleError && { borderColor: COLORS.danger, borderWidth: 1.5 }]}
+                placeholder="Яка твоя мрія? *"
+                placeholderTextColor={COLORS.textPlaceholder}
+                value={newDreamTitle}
+                onChangeText={(t) => { setNewDreamTitle(t); if (t.trim()) setDreamTitleError(false); }}
+                autoFocus
+              />
+              {dreamTitleError && (
+                <Text style={{ color: COLORS.danger, fontSize: 12, marginTop: 4, marginLeft: 4 }}>
+                  Введи назву мрії — це обов'язкове поле
+                </Text>
+              )}
+            </View>
             <TextInput style={SHARED.input} placeholder="Чому ця мрія важлива для тебе?" placeholderTextColor={COLORS.textPlaceholder} value={newDreamWhy} onChangeText={setNewDreamWhy} multiline />
             <TextInput style={SHARED.input} placeholder="Коли хочеш досягти? (напр. 2026)" placeholderTextColor={COLORS.textPlaceholder} value={newDreamDeadline} onChangeText={setNewDreamDeadline} />
             <View style={modal.btns}>

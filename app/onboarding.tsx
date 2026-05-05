@@ -276,6 +276,7 @@ export default function OnboardingScreen() {
             {/* ============= КРОК 1 — Ім'я ============= */}
             {step === 1 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <Text style={styles.questionTitle}>Як тебе звати?</Text>
                 <Text style={styles.questionSub}>Я хочу звертатись до тебе особисто</Text>
                 <TextInput
@@ -293,12 +294,14 @@ export default function OnboardingScreen() {
                 >
                   <Text style={styles.btnText}>Далі →</Text>
                 </TouchableOpacity>
+                </View>
               </View>
             )}
 
             {/* ============= КРОК 2 — Мета ============= */}
             {step === 2 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <ProgressBar current={1} total={TOTAL_STEPS} />
                 <Text style={styles.questionTitle}>Що для тебе зараз{"\n"}найважливіше, {name}?</Text>
                 <View style={styles.optionsGrid}>
@@ -336,12 +339,14 @@ export default function OnboardingScreen() {
                     ) : null}
                   </View>
                 </View>
+                </View>
               </View>
             )}
 
             {/* ============= КРОК 3 — Як ти зараз? ============= */}
             {step === 3 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <ProgressBar current={2} total={TOTAL_STEPS} />
                 <Text style={styles.questionTitle}>Як ти себе почуваєш{"\n"}прямо зараз?</Text>
                 <View style={styles.energyRow}>
@@ -355,6 +360,7 @@ export default function OnboardingScreen() {
                       <Text style={[styles.energyLabel, energyLevel === e.value && styles.energyLabelActive]}>{e.label}</Text>
                     </TouchableOpacity>
                   ))}
+                </View>
                 </View>
               </View>
             )}
@@ -482,6 +488,7 @@ export default function OnboardingScreen() {
             {/* ============= КРОК 7 — Результат ============= */}
             {step === 7 && (
               <View style={styles.stepContainer}>
+                <View style={styles.glassCard}>
                 <Text style={styles.resultTitle}>
                   {name}, твій вогник запалено! 🔥
                 </Text>
@@ -518,6 +525,7 @@ export default function OnboardingScreen() {
                     <Text style={styles.privacyConsentLink}>Політикою конфіденційності Naelo</Text>
                   </Text>
                 </TouchableOpacity>
+                </View>
               </View>
             )}
 

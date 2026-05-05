@@ -331,8 +331,8 @@ const styles = StyleSheet.create({
 });
 
 const timer = StyleSheet.create({
-  overlay: SHARED.modalOverlayCenter as any,
-  scrollContainer: { flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  overlay: { ...(SHARED.modalOverlayCenter as any), padding: 16 },
+  scrollContainer: { flexGrow: 1, justifyContent: "center", alignItems: "center", paddingVertical: 20 },
   container: { backgroundColor: COLORS.bgModal, borderRadius: 28, padding: 24, width: "100%", maxWidth: isTablet ? 520 : undefined, alignItems: "center", gap: 12 },
   closeBtn: { position: "absolute", right: 16, top: 16, zIndex: 10 },
   title: { color: COLORS.text, fontSize: 20, fontWeight: "700", textAlign: "center" },

@@ -1,7 +1,7 @@
 // ~/luma/app/settings.tsx
 // Налаштування акаунту — профіль, ім'я, вихід
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Alert, ScrollView, StatusBar, StyleSheet,
   Switch, Text, TextInput, TouchableOpacity, View,
@@ -27,6 +27,16 @@ export default function SettingsScreen() {
   const [email, setEmail] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Відстежуємо стан авторизації
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      setIsLoggedIn(!!user);
+      if (user?.email) setEmail(user.email);
+    });
+    return unsub;
+  }, []);
 
   // Нагадування
   const [reminderOn, setReminderOn]       = useState(false);
@@ -239,15 +249,26 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Акаунт</Text>
 
-          <TouchableOpacity style={styles.actionRow} onPress={handleSignOut}>
-            <View style={styles.iconWrap}><Ionicons name="log-out-outline" size={20} color={COLORS.textMuted} /></View>
-            <Text style={styles.actionText}>Вийти з акаунту</Text>
-          </TouchableOpacity>
+          {isLoggedIn && (
+            <TouchableOpacity style={styles.actionRow} onPress={handleSignOut}>
+              <View style={styles.iconWrap}><Ionicons name="log-out-outline" size={20} color={COLORS.textMuted} /></View>
+              <Text style={styles.actionText}>Вийти з акаунту</Text>
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity style={[styles.actionRow, styles.actionDanger]} onPress={handleDeleteAccount}>
-            <View style={styles.iconWrap}><Ionicons name="trash-outline" size={20} color={COLORS.danger} /></View>
-            <Text style={[styles.actionText, { color: COLORS.danger }]}>Видалити акаунт</Text>
-          </TouchableOpacity>
+          {isLoggedIn && (
+            <TouchableOpacity style={[styles.actionRow, styles.actionDanger]} onPress={handleDeleteAccount}>
+              <View style={styles.iconWrap}><Ionicons name="trash-outline" size={20} color={COLORS.danger} /></View>
+              <Text style={[styles.actionText, { color: COLORS.danger }]}>Видалити акаунт</Text>
+            </TouchableOpacity>
+          )}
+
+          {!isLoggedIn && (
+            <TouchableOpacity style={styles.actionRow} onPress={() => router.replace("/auth")}>
+              <View style={styles.iconWrap}><Ionicons name="log-in-outline" size={20} color={COLORS.textMuted} /></View>
+              <Text style={styles.actionText}>Увійти в акаунт</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Інформація */}

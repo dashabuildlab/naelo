@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   content:         { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
   logo:            { fontSize: 36, marginBottom: 24 },
   title:           { color: "#fff", fontSize: 26, fontWeight: "700", textAlign: "center" },
-  subtitle:        { color: "rgba(255,255,255,0.5)", fontSize: 15, marginTop: 8, marginBottom: 32, textAlign: "center" },
+  subtitle:        { color: "rgba(255,255,255,0.75)", fontSize: 15, marginTop: 8, marginBottom: 32, textAlign: "center" },
   form:            { width: "100%", maxWidth: 460, gap: 12 },
 
   // Social buttons
@@ -350,13 +350,13 @@ const styles = StyleSheet.create({
   // Divider
   divider:         { flexDirection: "row", alignItems: "center", gap: 12 },
   dividerLine:     { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.1)" },
-  dividerText:     { color: "rgba(255,255,255,0.3)", fontSize: 13 },
+  dividerText:     { color: "rgba(255,255,255,0.5)", fontSize: 13 },
 
   // Mode toggle
   modeRow:         { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 30, padding: 3 },
   modeBtn:         { flex: 1, paddingVertical: 10, borderRadius: 30, alignItems: "center" },
   modeBtnActive:   { backgroundColor: "#FFB300" },
-  modeBtnText:     { color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" },
+  modeBtnText:     { color: "rgba(255,255,255,0.65)", fontSize: 14, fontWeight: "600" },
   modeBtnTextActive: { color: "#000", fontWeight: "700" },
 
   // Inputs
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   btnText:         { color: "#FFB300", fontSize: 16, fontWeight: "700" },
 
   btnSkip:         { paddingVertical: 14, alignItems: "center" },
-  skipText:        { color: "rgba(255,255,255,0.3)", fontSize: 14 },
+  skipText:        { color: "rgba(255,255,255,0.55)", fontSize: 14 },
 
   btnForgot:       { alignItems: "center", paddingVertical: 4 },
   forgotText:      { color: "rgba(255,179,0,0.6)", fontSize: 13, textDecorationLine: "underline" },

@@ -167,11 +167,14 @@ export default function ChatScreen() {
     } catch (e: any) {
       clearTimeout(timeoutId);
       const isTimeout = e?.name === "AbortError";
+      const isHttpErr = e?.message?.startsWith("HTTP ");
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(), role: "assistant",
         text: isTimeout
-          ? "Naelo не відповідає — схоже сервер перевантажено. Спробуй ще раз через хвилину 🙏"
-          : "Схоже є проблема зі з'єднанням. Перевір інтернет і спробуй ще раз",
+          ? "Naelo не відповідає — сервер перевантажено. Спробуй ще раз через хвилину 🙏"
+          : isHttpErr
+          ? `Сервер тимчасово недоступний (${e.message}). Спробуй ще раз пізніше 🙏`
+          : "Не вдалось підключитись до сервера. Перевір інтернет і спробуй ще раз 🙏",
       }]);
     } finally {
       setLoading(false);

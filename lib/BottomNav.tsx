@@ -4,6 +4,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS, CONTENT_MAX_W, SIZES, isTablet } from "./theme";
 
 type TabKey = "home" | "my-path" | "pharmacy" | "dream-path" | "chat";
@@ -25,9 +26,12 @@ type Props = {
 
 export default function BottomNav({ active }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  // На Android з edgeToEdgeEnabled потрібен відступ за системну навігаційну панель
+  const bottomPad = Math.max(insets.bottom, 10) + 4;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomPad }]}>
       {/* Центруємо вміст по максимальній ширині контенту на iPad */}
       <View style={styles.inner}>
         {TABS.map((tab) => {
@@ -68,7 +72,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(8,6,16,0.97)",
     borderTopWidth: 0.5,
     borderTopColor: "rgba(255,255,255,0.08)",
-    paddingBottom: 28,
     paddingTop: 10,
   },
   // Обмежує ширину іконок — на iPad контент не розтягується на всю ширину екрану
