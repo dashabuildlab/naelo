@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Animated, Dimensions, Easing, Image,
-  Modal, ScrollView, StatusBar, StyleSheet,
+  Modal, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -308,6 +308,9 @@ export default function DreamPathScreen() {
         style={styles.absoluteBg}
         contentFit="cover"
         nativeControls={false}
+        allowsVideoFrameAnalysis={false}   // вимкнути iOS Live Text / Visual Look Up overlay
+        allowsPictureInPicture={false}     // вимкнути PiP-кнопку
+        allowsFullscreen={false}            // вимкнути fullscreen-кнопку
       />
       {/* Poster: показується миттєво, зникає коли відео готове */}
       <Animated.Image
@@ -320,8 +323,10 @@ export default function DreamPathScreen() {
       <Animated.View style={[styles.glowCore, { opacity: glowCore }]} />
       <Animated.View style={[styles.pulseRing, { opacity: glowAnim, transform: [{ scale: pulseAnim }] }]} />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ height: dreams.length > 0 ? height * 0.32 : height * 0.58 }} />
+      <KeyboardAwareScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} bottomOffset={110} keyboardShouldPersistTaps="handled">
+        {/* Зарезервоване місце для відео з маяком — однаковий відступ незалежно від кількості мрій,
+            щоб блок не перекривав маяк, а просто продовжувався вниз зі скролом */}
+        <View style={{ height: height * 0.58 }} />
 
         <View style={styles.contentBackdrop}>
           <Text style={styles.lighthouseTitle}>Твій маяк</Text>
@@ -338,8 +343,12 @@ export default function DreamPathScreen() {
                   {dream.verified && <Text style={styles.verifiedBadge}>✓ Справжня</Text>}
                   <Text style={styles.dreamTitle}>{dream.title}</Text>
                 </View>
-                <TouchableOpacity onPress={() => deleteDream(dream.id)}>
-                  <Text style={styles.deleteBtn}>✕</Text>
+                <TouchableOpacity
+                  onPress={() => deleteDream(dream.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.deleteBtn}
+                >
+                  <Ionicons name="trash-outline" size={18} color={COLORS.textFaint} />
                 </TouchableOpacity>
               </View>
               {dream.why ? (
@@ -424,7 +433,7 @@ export default function DreamPathScreen() {
           )}
         </View>
         <View style={{ height: 20 }} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Модаль додавання мрії */}
       <Modal visible={showAddDream} animationType="slide" transparent onRequestClose={() => { setShowAddDream(false); setNewDreamTitle(""); setNewDreamWhy(""); setNewDreamDeadline(""); setDreamTitleError(false); }}>
@@ -456,7 +465,15 @@ export default function DreamPathScreen() {
               )}
             </View>
             <TextInput style={SHARED.input} placeholder="Чому ця мрія важлива для тебе?" placeholderTextColor={COLORS.textPlaceholder} value={newDreamWhy} onChangeText={setNewDreamWhy} multiline />
-            <TextInput style={SHARED.input} placeholder="Коли хочеш досягти? (напр. 2026)" placeholderTextColor={COLORS.textPlaceholder} value={newDreamDeadline} onChangeText={setNewDreamDeadline} />
+            <TextInput
+              style={SHARED.input}
+              placeholder="Коли хочеш досягти? (напр. 2026)"
+              placeholderTextColor={COLORS.textPlaceholder}
+              value={newDreamDeadline}
+              onChangeText={(t) => setNewDreamDeadline(t.replace(/\D/g, "").slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
+            />
             <View style={modal.btns}>
               <TouchableOpacity style={[SHARED.btnPrimary as any, !newDreamTitle.trim() && { opacity: 0.45 }]} onPress={addDream}>
                 <Text style={SHARED.btnPrimaryText}>Додати →</Text>
@@ -513,7 +530,7 @@ const styles = StyleSheet.create({
   dreamTitleRow: { flex: 1, gap: 4 },
   verifiedBadge: { color: COLORS.success, fontSize: SIZES.fontXS, fontWeight: "600" },
   dreamTitle: { color: COLORS.text, fontSize: 17, fontWeight: "700", flex: 1 },
-  deleteBtn: { color: COLORS.textFaint, fontSize: 16, paddingLeft: 12 },
+  deleteBtn: { paddingLeft: 12, paddingVertical: 2 },
   dreamWhy: { color: COLORS.textSoft, fontSize: SIZES.fontSM, marginBottom: 6 },
   dreamDeadline: { color: "rgba(255,179,0,0.7)", fontSize: SIZES.fontSM, marginBottom: 10 },
   progressRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },

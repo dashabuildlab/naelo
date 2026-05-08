@@ -47,6 +47,9 @@ export default function WelcomeScreen() {
         style={styles.videoBg}
         contentFit="cover"
         nativeControls={false}
+        allowsVideoFrameAnalysis={false}
+        allowsPictureInPicture={false}
+        allowsFullscreen={false}
       />
 
       {/* Затемнення знизу */}

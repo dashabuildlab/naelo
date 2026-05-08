@@ -1,15 +1,16 @@
 // ~/luma/app/my-path.tsx
 // Мій шлях — графік енергії + 🟢 Додай / 🔴 Відпусти + стрічка відповідей
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   Animated, Dimensions, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth } from "../lib/firebase";
+import { useAppStore } from "../lib/AppContext";
 
 const API_URL = "https://mynaelo.com/api";
 import { COLORS, SIZES, SHARED, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
@@ -51,8 +52,8 @@ const scoreColor = (s: number) => s >= 70 ? "#4ADE80" : s >= 45 ? "#FFB300" : "#
 export default function MyPathScreen() {
   const router = useRouter();
 
+  const { score: currentScore, setScore: setCurrentScore } = useAppStore();
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
-  const [currentScore, setCurrentScore] = useState(50);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -105,35 +106,54 @@ export default function MyPathScreen() {
     return { topGivers, topDrains };
   }, [checkins]);
 
-  // Завантажуємо раз при появі auth — не при кожному переході між вкладками
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const uid = userIdRef.current || auth.currentUser?.uid;
+  // Завантажуємо при кожному переході на цей екран (а не лише при появі auth),
+  // щоб одразу побачити свіжий запис з /home — навіть якщо DB POST ще не встиг.
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        setLoading(true);
+        try {
+          const uid = userIdRef.current || auth.currentUser?.uid;
 
-        if (uid) {
-          const profileResp = await fetch(`${API_URL}/profile?user_id=${uid}`);
-          const profileData = await profileResp.json();
-          const cachedScore = Number(await AsyncStorage.getItem("naelo_score") || "0");
-          const dbScore = profileData.profile?.score || 0;
-          setCurrentScore(Math.max(dbScore, cachedScore) || 50);
-
-          const checkinsResp = await fetch(`${API_URL}/checkins?user_id=${uid}&days=30`);
-          const checkinsData = await checkinsResp.json();
-          if (checkinsData.checkins) setCheckins(checkinsData.checkins);
-        } else {
-          // Не авторизований — score і чекіни з локального кешу
-          const cached = await AsyncStorage.getItem("naelo_score");
-          if (cached) setCurrentScore(Number(cached));
+          // Завжди читаємо локальний кеш — там лежить найсвіжіший чекін
+          // (home.tsx пише в нього миттєво, до DB POST).
           const localRaw = await AsyncStorage.getItem("naelo_local_checkins");
-          if (localRaw) setCheckins(JSON.parse(localRaw));
+          const localCheckins: CheckinEntry[] = localRaw ? JSON.parse(localRaw) : [];
+
+          if (uid) {
+            const profileResp = await fetch(`${API_URL}/profile?user_id=${uid}`);
+            const profileData = await profileResp.json();
+            const dbScore = profileData.profile?.score || 0;
+            if (dbScore > 0) setCurrentScore(Math.max(dbScore, currentScore));
+
+            const checkinsResp = await fetch(`${API_URL}/checkins?user_id=${uid}&days=30`);
+            const checkinsData = await checkinsResp.json();
+            const dbCheckins: CheckinEntry[] = checkinsData.checkins || [];
+
+            // Зливаємо: DB — джерело правди, але якщо локально є запис на дату,
+            // якої ще немає в DB (POST ще в дорозі) — додаємо локальний.
+            const dbDates = new Set(dbCheckins.map((c) => c.date));
+            const merged = [
+              ...dbCheckins,
+              ...localCheckins.filter((c) => !dbDates.has(c.date)),
+            ].sort((a, b) => (a.date < b.date ? 1 : -1));
+            setCheckins(merged);
+          } else {
+            // Не авторизований — лише локальний кеш
+            setCheckins(localCheckins);
+          }
+        } catch (e) {
+          // Якщо API впав — показуємо хоча б локальний кеш
+          try {
+            const localRaw = await AsyncStorage.getItem("naelo_local_checkins");
+            if (localRaw) setCheckins(JSON.parse(localRaw));
+          } catch {}
         }
-      } catch (e) {}
-      setLoading(false);
-    };
-    load();
-  }, [userId]);
+        setLoading(false);
+      };
+      load();
+    }, [userId])
+  );
 
 
   // --- Міні-графік енергії (останні 7 днів) ---
@@ -145,7 +165,14 @@ export default function MyPathScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollInner}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="never"
+        bounces={true}
+      >
 
         {/* ═══ Вогник душі зараз ═══ */}
         <View style={styles.scoreCard}>
@@ -297,7 +324,6 @@ export default function MyPathScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
       </ScrollView>
 
       <BottomNav active="my-path" />
@@ -308,7 +334,14 @@ export default function MyPathScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgDark },
   scroll: { flex: 1 },
-  scrollInner: { paddingHorizontal: CONTENT_PAD_H, paddingTop: SIZES.paddingTop + 8, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
+  scrollInner: {
+    paddingHorizontal: CONTENT_PAD_H,
+    paddingTop: SIZES.paddingTop + 8,
+    paddingBottom: 110,                 // ⬅️ щоб контент не ховався за BottomNav
+    maxWidth: CONTENT_MAX_W,
+    alignSelf: "center" as const,
+    width: "100%" as const,
+  },
 
   // Вогник зараз
   scoreCard: {
@@ -353,16 +386,21 @@ const styles = StyleSheet.create({
   // Стрічка
   timelineSection: { marginTop: 4 },
   entryCard: {
-    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SIZES.radius,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", padding: 14, marginBottom: 10, gap: 6,
+    backgroundColor: "rgba(255,255,255,0.10)",   // ⬆️ було 0.04 — ледь видно на темному
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",       // ⬆️ було 0.06 — рамка тепер чіткіша
+    padding: 14,
+    marginBottom: 10,
+    gap: 6,
   },
   entryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  entryDate: { color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: "600" },
+  entryDate: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: "600" },   // ⬆️ 0.5 → 0.75
   entryScore: { fontSize: 14, fontWeight: "700" },
-  entryQuestion: { color: "rgba(255,255,255,0.35)", fontSize: 12 },
-  entryNote: { color: "rgba(255,255,255,0.75)", fontSize: 14, lineHeight: 20, fontStyle: "italic" },
+  entryQuestion: { color: "rgba(255,255,255,0.55)", fontSize: 12 },                  // ⬆️ 0.35 → 0.55
+  entryNote: { color: "rgba(255,255,255,0.92)", fontSize: 14, lineHeight: 20, fontStyle: "italic" }, // ⬆️ 0.75 → 0.92
   entryHintsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  entryHint: { color: "rgba(255,255,255,0.5)", fontSize: 12, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  entryHint: { color: "rgba(255,255,255,0.75)", fontSize: 12, backgroundColor: "rgba(255,255,255,0.10)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
 
   // Акаунт / налаштування
   accountSection: { marginTop: 12, alignItems: "center", gap: 8 },

@@ -14,6 +14,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES, SHARED, scoreColor, CONTENT_PAD_H, CONTENT_MAX_W, isTablet } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 import KeyboardScreen from "../lib/KeyboardScreen";
+import { useAppStore } from "../lib/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import { logScreen, logEvent } from "../lib/analytics";
 
@@ -81,9 +82,8 @@ const getAdvice = (score: number, userName: string): Advice => {
 export default function HomeScreen() {
   const router = useRouter();
 
-  const [userName, setUserName] = useState("");
-  const [score, setScore] = useState(50);
-  const [streak, setStreak] = useState(0);
+  const { score, setScore, userName, setUserName, streak, setStreak } = useAppStore();
+
   const [answeredToday, setAnsweredToday] = useState(false);
   const [answerText, setAnswerText] = useState("");
   const [showThankYou, setShowThankYou] = useState(false);
@@ -91,14 +91,6 @@ export default function HomeScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const userIdRef = useRef<string | null>(null);
 
-  // Анімації сфери
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0.3)).current;
-  const pulse2 = useRef(new Animated.Value(1)).current;
-  const glow2 = useRef(new Animated.Value(0.2)).current;
-  const pulse3 = useRef(new Animated.Value(1)).current;
-  const glow3 = useRef(new Animated.Value(0.15)).current;
-  const glowCore = useRef(new Animated.Value(0.5)).current;
   const thankYouAnim = useRef(new Animated.Value(0)).current;
 
   // Питання дня (ротація по даті)
@@ -120,9 +112,6 @@ export default function HomeScreen() {
   // Завантажуємо раз при появі auth — не при кожному переході між вкладками
   useEffect(() => {
     const load = async () => {
-      const name = await AsyncStorage.getItem("naelo_name");
-      if (name) setUserName(name);
-
       // Перевірити чи є відповідь сьогодні локально
       const todayCheck = new Date().toISOString().split("T")[0];
       const answeredLocal = await AsyncStorage.getItem("naelo_answered_today");
@@ -136,13 +125,11 @@ export default function HomeScreen() {
           const profile = profileData.profile;
 
           if (profile) {
-            const dbScore = profile.score || 50;
-            const cachedScore = Number(await AsyncStorage.getItem("naelo_score") || "0");
-            const s = Math.max(dbScore, cachedScore);
-            setScore(s);
+            // API — джерело правди; беремо більше між DB і кешем контексту
+            const s = Math.max(profile.score || 50, score);
+            setScore(s);           // → оновлює контекст + AsyncStorage
             setStreak(profile.streak || 0);
             if (profile.name) setUserName(profile.name);
-            await AsyncStorage.setItem("naelo_score", String(s));
           }
 
           // answeredToday: локальний флаг вже перевірено вище; якщо немає — перевіряємо DB
@@ -155,14 +142,13 @@ export default function HomeScreen() {
 
           // Синхронізувати дані онбордингу в профіль (один раз)
           if (profile && !profile.score) {
-            const goalRaw = await AsyncStorage.getItem("naelo_goal");
-            const scoreRaw = await AsyncStorage.getItem("naelo_score");
-            const drainsRaw = await AsyncStorage.getItem("naelo_drains");
-            const drainsTextRaw = await AsyncStorage.getItem("naelo_drains_text");
-            const concernsRaw = await AsyncStorage.getItem("naelo_concerns");
+            const goalRaw      = await AsyncStorage.getItem("naelo_goal");
+            const drainsRaw    = await AsyncStorage.getItem("naelo_drains");
+            const drainsTextRaw= await AsyncStorage.getItem("naelo_drains_text");
+            const concernsRaw  = await AsyncStorage.getItem("naelo_concerns");
             const concernsTextRaw = await AsyncStorage.getItem("naelo_concerns_text");
-            const giversTextRaw = await AsyncStorage.getItem("naelo_givers_text");
-            const giversRaw = await AsyncStorage.getItem("naelo_givers");
+            const giversTextRaw= await AsyncStorage.getItem("naelo_givers_text");
+            const giversRaw    = await AsyncStorage.getItem("naelo_givers");
             await fetch(`${API_URL}/profile`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
@@ -175,13 +161,10 @@ export default function HomeScreen() {
                 concerns_text: concernsTextRaw || "",
                 givers_text: giversTextRaw || "",
                 energy_givers: giversRaw || "[]",
-                score: scoreRaw ? Number(scoreRaw) : 50,
+                score,   // значення вже з контексту
               }),
             });
           }
-        } else {
-          const savedScore = await AsyncStorage.getItem("naelo_score");
-          if (savedScore) setScore(Number(savedScore));
         }
       } catch (e) {}
     };
@@ -226,37 +209,6 @@ export default function HomeScreen() {
     sync();
   }, [userId]);
 
-  // Анімації сфери
-  useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.08, duration: 2500, useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1.0, duration: 2500, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim, { toValue: 0.8, duration: 2000, useNativeDriver: true }),
-      Animated.timing(glowAnim, { toValue: 0.2, duration: 2000, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(pulse2, { toValue: 1.12, duration: 3200, useNativeDriver: true }),
-      Animated.timing(pulse2, { toValue: 1.0, duration: 3200, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(glow2, { toValue: 0.6, duration: 2800, useNativeDriver: true }),
-      Animated.timing(glow2, { toValue: 0.1, duration: 2800, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(pulse3, { toValue: 1.15, duration: 4000, useNativeDriver: true }),
-      Animated.timing(pulse3, { toValue: 1.0, duration: 4000, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(glow3, { toValue: 0.45, duration: 3500, useNativeDriver: true }),
-      Animated.timing(glow3, { toValue: 0.08, duration: 3500, useNativeDriver: true }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(glowCore, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.timing(glowCore, { toValue: 0.4, duration: 800, useNativeDriver: true }),
-    ])).start();
-  }, []);
 
   const API_URL = "https://mynaelo.com/api";
 
@@ -287,11 +239,35 @@ export default function HomeScreen() {
     // Спочатку показати результат з локальним розрахунком, потім оновити AI
     const localDelta = evaluateLocal(answerText);
     const newScore = Math.max(5, Math.min(95, score + localDelta));
+    const todayStr = new Date().toISOString().split("T")[0];
+    const noteText = answerText.trim();
+
     setScoreChange(localDelta);
     setScore(newScore);
     setAnsweredToday(true);
     setShowThankYou(true);
-    logEvent("checkin_submit", { text_length: answerText.trim().length });
+    logEvent("checkin_submit", { text_length: noteText.length });
+
+    // ⚡ ОДРАЗУ записуємо в локальний кеш — щоб /my-path побачив запис,
+    // навіть якщо користувач переключиться раніше, ніж AI/DB встигнуть.
+    try {
+      await AsyncStorage.setItem("naelo_answered_today", todayStr);
+      const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
+      const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
+      const earlyEntry = {
+        id: `local_${todayStr}`,
+        date: todayStr,
+        note: noteText || null,
+        hints: null,
+        question: dailyQ.q,
+        energy: newScore,
+        delta: localDelta,
+      };
+      await AsyncStorage.setItem(
+        "naelo_local_checkins",
+        JSON.stringify([earlyEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
+      );
+    } catch {}
 
     Animated.sequence([
       Animated.timing(thankYouAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
@@ -305,7 +281,7 @@ export default function HomeScreen() {
       const evalRes = await fetch(`${API_URL}/ai/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: answerText.trim(), question: dailyQ.q }),
+        body: JSON.stringify({ text: noteText, question: dailyQ.q }),
       });
       const evalJson = await evalRes.json();
       if (typeof evalJson.delta === "number") {
@@ -317,29 +293,29 @@ export default function HomeScreen() {
     } catch (e) { /* fallback до local */ }
 
     const finalScore = Math.max(5, Math.min(95, score + delta));
-    const todayStr = new Date().toISOString().split("T")[0];
 
-    // Завжди зберігаємо локально — незалежно від авторизації
+    // Зберігаємо — setScore пише в контекст + AsyncStorage автоматично
     setScore(finalScore);
     setScoreChange(delta);
-    await AsyncStorage.setItem("naelo_score", String(finalScore));
-    await AsyncStorage.setItem("naelo_answered_today", todayStr);
 
-    const localEntry = {
-      id: `local_${todayStr}`,
-      date: todayStr,
-      note: answerText.trim() || null,
-      hints: null,
-      question: dailyQ.q,
-      energy: finalScore,
-      delta,
-    };
-    const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
-    const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
-    await AsyncStorage.setItem(
-      "naelo_local_checkins",
-      JSON.stringify([localEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
-    );
+    // Оновити локальний запис фінальним delta/energy після AI
+    try {
+      const localEntry = {
+        id: `local_${todayStr}`,
+        date: todayStr,
+        note: noteText || null,
+        hints: null,
+        question: dailyQ.q,
+        energy: finalScore,
+        delta,
+      };
+      const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
+      const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
+      await AsyncStorage.setItem(
+        "naelo_local_checkins",
+        JSON.stringify([localEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
+      );
+    } catch {}
 
     // Якщо є uid — зберігаємо і в DB
     try {
@@ -414,12 +390,9 @@ export default function HomeScreen() {
 
       {SPARKS.map((s) => <Spark key={s.id} {...s} />)}
 
-      <Animated.View style={[styles.glowCore, { opacity: glowCore }]} />
-      <Animated.View style={[styles.pulseRing1, { opacity: glowAnim, transform: [{ scale: pulseAnim }] }]} />
-      <Animated.View style={[styles.pulseRing2, { opacity: glow2, transform: [{ scale: pulse2 }] }]} />
-      <Animated.View style={[styles.pulseRing3, { opacity: glow3, transform: [{ scale: pulse3 }] }]} />
+      {/* Невидима зона тапу над сферою фону → відкриває чат */}
+      <TouchableOpacity style={styles.sphereWrap} activeOpacity={1} onPress={() => router.push("/chat")} />
 
-      <TouchableOpacity style={styles.sphereTap} activeOpacity={0.8} onPress={() => router.push("/chat")} />
 
       {/* Хедер */}
       <View style={styles.header}>
@@ -525,12 +498,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgDark },
   absoluteBg: { position: "absolute", top: 0, left: 0, width, height: width * 1.16 },
 
-  // Сфера
-  glowCore: { position: "absolute", width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.glow, top: height * 0.25 - 20, left: (width - 40) / 2 },
-  sphereTap: { position: "absolute", top: height * 0.25 - 110, left: (width - 220) / 2, width: 220, height: 220, alignItems: "center", justifyContent: "center", zIndex: 10 },
-  pulseRing1: { position: "absolute", width: 70, height: 70, borderRadius: 35, borderWidth: 1.5, borderColor: COLORS.ring1, top: height * 0.25 - 35, left: (width - 70) / 2 },
-  pulseRing2: { position: "absolute", width: 130, height: 130, borderRadius: 65, borderWidth: 1, borderColor: COLORS.ring2, top: height * 0.25 - 65, left: (width - 130) / 2 },
-  pulseRing3: { position: "absolute", width: 200, height: 200, borderRadius: 100, borderWidth: 0.8, borderColor: COLORS.ring3, top: height * 0.25 - 100, left: (width - 200) / 2 },
+  // Зона тапу над сферою фонового зображення → веде в чат
+  sphereWrap: {
+    position: "absolute",
+    width: 280, height: 280,
+    top: height * 0.25 - 140,
+    left: (width - 280) / 2,
+    zIndex: 10,
+  },
 
   // Хедер
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, paddingTop: SIZES.paddingTop, paddingBottom: 8, zIndex: 10 },

@@ -13,6 +13,7 @@ import { auth } from "../lib/firebase";
 
 const API_URL = "https://mynaelo.com/api";
 import { COLORS, SIZES, SHARED, CONTENT_PAD_H, CONTENT_MAX_W } from "../lib/theme";
+import { useAppStore } from "../lib/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../lib/Header";
 import {
@@ -24,6 +25,7 @@ import {
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { setScore, setUserName: setCtxUserName, setStreak } = useAppStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [editingName, setEditingName] = useState(false);
@@ -62,7 +64,7 @@ export default function SettingsScreen() {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await AsyncStorage.setItem("naelo_name", name.trim());
+      setCtxUserName(name.trim()); // → контекст + AsyncStorage
       const uid = auth.currentUser?.uid;
       if (uid) {
         await fetch(`${API_URL}/profile`, {
@@ -118,6 +120,10 @@ export default function SettingsScreen() {
                 "naelo_goal", "naelo_energy", "naelo_givers",
                 "naelo_drains", "naelo_concerns",
               ]);
+              // Скидаємо контекст — щоб наступний юзер не бачив чужий score
+              setScore(50);
+              setCtxUserName("");
+              setStreak(0);
               router.replace("/auth");
             } catch (e: any) {
               Alert.alert("Помилка", e?.message || "Не вдалося вийти");
@@ -147,6 +153,9 @@ export default function SettingsScreen() {
                 await deleteUser(auth.currentUser);
               }
               await AsyncStorage.clear();
+              setScore(50);
+              setCtxUserName("");
+              setStreak(0);
               router.replace("/auth");
             } catch (e: any) {
               if (e?.code === "auth/requires-recent-login") {
@@ -282,7 +291,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <View style={styles.versionRow}>
-            <Text style={styles.versionText}>Naelo v1.5.0</Text>
+            <Text style={styles.versionText}>Naelo v1.5.1</Text>
           </View>
         </View>
 

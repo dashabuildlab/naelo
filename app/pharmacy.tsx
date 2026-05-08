@@ -17,6 +17,8 @@ import { Ionicons } from "@expo/vector-icons";
 import BottomNav from "../lib/BottomNav";
 import { logScreen, logEvent } from "../lib/analytics";
 import { checkPremium } from "../lib/purchases";
+import { useAppStore } from "../lib/AppContext";
+import { playSound, unloadSounds } from "../lib/sounds";
 
 const { width } = Dimensions.get("window");
 
@@ -62,19 +64,36 @@ const TimerModal = ({ practice, onClose, onComplete }: { practice: Practice; onC
   const [finished, setFinished] = useState(false);
   const intervalRef = useRef<any>(null);
 
-  useEffect(() => { return () => { if (intervalRef.current) clearInterval(intervalRef.current); }; }, []);
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      unloadSounds();
+    };
+  }, []);
 
   const start = () => {
+    playSound("start");
     setRunning(true);
     intervalRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
-        if (prev <= 1) { clearInterval(intervalRef.current); setRunning(false); setFinished(true); Vibration.vibrate(500); return 0; }
+        if (prev <= 1) {
+          clearInterval(intervalRef.current);
+          setRunning(false);
+          setFinished(true);
+          playSound("complete");
+          Vibration.vibrate([0, 200, 100, 200]);
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
   };
 
-  const pause = () => { setRunning(false); if (intervalRef.current) clearInterval(intervalRef.current); };
+  const pause = () => {
+    playSound("pause");
+    setRunning(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
   const progressPercent = ((practice.durationSec - secondsLeft) / practice.durationSec) * 100;
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
@@ -139,17 +158,6 @@ const TimerModal = ({ practice, onClose, onComplete }: { practice: Practice; onC
           <View style={timer.progressBar}>
             <View style={[timer.progressFill, { width: `${progressPercent}%`, backgroundColor: practice.color }]} />
           </View>
-          {/* Всі кроки одночасно під таймером */}
-          <ScrollView style={timer.stepsScroll} showsVerticalScrollIndicator={false}>
-            {practice.steps.map((step, i) => (
-              <View key={i} style={timer.timerStepRow}>
-                <View style={[timer.stepDot, { backgroundColor: practice.color }]}>
-                  <Text style={timer.stepDotNum}>{i + 1}</Text>
-                </View>
-                <Text style={timer.timerStepText}>{step}</Text>
-              </View>
-            ))}
-          </ScrollView>
           {finished ? (
             <TouchableOpacity style={[timer.btn, { borderColor: COLORS.success, backgroundColor: COLORS.successDim }]} onPress={() => { onComplete(); onClose(); }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -185,6 +193,7 @@ const TimerModal = ({ practice, onClose, onComplete }: { practice: Practice; onC
 
 export default function PharmacyScreen() {
   const router = useRouter();
+  const { score, setScore } = useAppStore();
   const [activeCategory, setActiveCategory] = useState("stress");
   const [activePractice, setActivePractice] = useState<Practice | null>(null);
   const [completedToday, setCompletedToday] = useState<Record<string, number>>({});
@@ -224,17 +233,13 @@ export default function PharmacyScreen() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, practice_id: practice.id, category: activeCategory, duration_sec: practice.durationSec }),
     });
-    const profileResp = await fetch(`${API_URL}/profile?user_id=${userId}`);
-    const profileData = await profileResp.json();
-    if (profileData.profile) {
-      const newScore = Math.min((profileData.profile.score || 0) + 2, 100);
-      await fetch(`${API_URL}/profile`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, score: newScore }),
-      });
-      await AsyncStorage.setItem("naelo_score", String(newScore));
-    }
+    const newScore = Math.min(score + 2, 100);
+    setScore(newScore);   // → контекст + AsyncStorage
+    await fetch(`${API_URL}/profile`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, score: newScore }),
+    });
     setCompletedToday((prev) => ({ ...prev, [practice.id]: (prev[practice.id] || 0) + 1 }));
     setTotalToday((prev) => prev + 1);
     logEvent("practice_complete", { practice_id: practice.id, category: activeCategory, duration_sec: practice.durationSec });
@@ -253,18 +258,33 @@ export default function PharmacyScreen() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
-        {CATEGORIES.map((cat) => (
-          <TouchableOpacity
-            key={cat.id}
-            style={[styles.catBtn, activeCategory === cat.id && { borderColor: cat.color, backgroundColor: cat.color + "15" }]}
-            onPress={() => setActiveCategory(cat.id)}
-          >
-            <Ionicons name={cat.icon} size={15} color={activeCategory === cat.id ? cat.color : COLORS.textMuted} />
-            <Text style={[styles.catText, activeCategory === cat.id && { color: cat.color }]}>{cat.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Обгортка з фіксованою висотою — гарантує, що рядок категорій
+          ніколи не змінює висоту незалежно від активної іконки */}
+      <View style={styles.categoriesWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categories}
+        >
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={[styles.catBtn, activeCategory === cat.id && { borderColor: cat.color, backgroundColor: cat.color + "15" }]}
+              onPress={() => setActiveCategory(cat.id)}
+            >
+              <View style={styles.catIconWrap}>
+                <Ionicons name={cat.icon} size={15} color={activeCategory === cat.id ? cat.color : COLORS.textMuted} />
+              </View>
+              <Text
+                style={[styles.catText, activeCategory === cat.id && { color: cat.color }]}
+                numberOfLines={1}
+              >
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Дисклеймер */}
@@ -320,9 +340,22 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: CONTENT_PAD_H, paddingBottom: 100, maxWidth: CONTENT_MAX_W, alignSelf: "center" as const, width: "100%" as const },
   todayBadge: { alignSelf: "center" as const, width: "100%", maxWidth: CONTENT_MAX_W, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14, backgroundColor: COLORS.primarySoft, borderWidth: 1, borderColor: COLORS.primaryGlow, marginBottom: 4 },
   todayText: { color: COLORS.primary, fontSize: SIZES.fontSM, fontWeight: "600", textAlign: "center" },
-  categories: { paddingHorizontal: CONTENT_PAD_H, paddingVertical: 12, gap: 10 },
-  catBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: SIZES.radiusLarge, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.cardLight },
-  catText: { color: COLORS.textMuted, fontSize: 14, fontWeight: "500" },
+  // Фіксована висота для всього рядка категорій — щоб іконки/текст не змінювали його розмір
+  categoriesWrap: { height: 62, marginBottom: 4 },
+  categories: { paddingHorizontal: CONTENT_PAD_H, gap: 10, alignItems: "center" as const },
+  catBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    height: 38,                          // фіксована висота pill
+    borderRadius: SIZES.radiusLarge,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.cardLight,
+  },
+  catIconWrap: { width: 16, height: 16, alignItems: "center" as const, justifyContent: "center" as const },
+  catText: { color: COLORS.textMuted, fontSize: 14, fontWeight: "500", lineHeight: 18, includeFontPadding: false },
   disclaimer: { marginBottom: 12, marginTop: 4, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   disclaimerText: { color: "rgba(255,255,255,0.35)", fontSize: 12, lineHeight: 17, textAlign: "center" },
   sectionTitle: { color: COLORS.textMuted, fontSize: SIZES.fontSM, letterSpacing: 0.5, marginBottom: 14, marginTop: 4 },
@@ -356,9 +389,6 @@ const timer = StyleSheet.create({
   time: { fontSize: 56, fontWeight: "800", letterSpacing: 2 },
   progressBar: { width: "100%", height: 4, backgroundColor: COLORS.borderLight, borderRadius: 2 },
   progressFill: { height: 4, borderRadius: 2 },
-  stepsScroll: { width: "100%", maxHeight: 180 },
-  timerStepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 5 },
-  timerStepText: { color: COLORS.textSoft, fontSize: 13, lineHeight: 19, flex: 1 },
   btn: { width: "100%", paddingVertical: 16, borderRadius: SIZES.radiusRound, borderWidth: 1.5, alignItems: "center", marginTop: 4 },
   btnText: { color: COLORS.textSoft, fontSize: 16, fontWeight: "700" },
   skipText: { color: COLORS.textFaint, fontSize: SIZES.fontSM, marginTop: 8 },

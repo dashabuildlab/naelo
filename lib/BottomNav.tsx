@@ -40,7 +40,13 @@ export default function BottomNav({ active }: Props) {
             <TouchableOpacity
               key={tab.key}
               style={styles.item}
-              onPress={() => router.push(tab.route as any)}
+              onPress={() => {
+                // Якщо вкладка вже активна — нічого не робимо.
+                // Інакше router.push() створив би новий екземпляр екрана
+                // поверх старого і скрол би скидався на нуль.
+                if (isActive) return;
+                router.push(tab.route as any);
+              }}
               activeOpacity={0.7}
             >
               <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>

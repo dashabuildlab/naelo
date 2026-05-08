@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
+import SoulFlame from "../lib/SoulFlame";
+import { useAppStore } from "../lib/AppContext";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import KeyboardScreen from "../lib/KeyboardScreen";
@@ -21,56 +23,56 @@ const RS = S / 2;
 // --- Дані для екранів ---
 
 const GOALS = [
-  { label: "Більше енергії", emoji: "⚡" },
-  { label: "Менше стресу", emoji: "🧘" },
-  { label: "Фокус і продуктивність", emoji: "🎯" },
-  { label: "Баланс і спокій", emoji: "☯️" },
+  { label: "Більше енергії" },
+  { label: "Менше стресу" },
+  { label: "Фокус і продуктивність" },
+  { label: "Баланс і спокій" },
 ];
 
 const ENERGY_LEVELS = [
-  { label: "Виснажений", emoji: "😴", value: 20 },
-  { label: "Втомлений", emoji: "😐", value: 40 },
-  { label: "Нормально", emoji: "😊", value: 60 },
-  { label: "Сповнений сил", emoji: "⚡", value: 85 },
+  { label: "Виснажений", value: 20 },
+  { label: "Втомлений", value: 40 },
+  { label: "Нормально", value: 60 },
+  { label: "Сповнений сил", value: 85 },
 ];
 
 const CONCERNS = [
-  { label: "Стрес", emoji: "😰", penalty: 8 },
-  { label: "Втома", emoji: "😴", penalty: 8 },
-  { label: "Тривога", emoji: "🌀", penalty: 7 },
-  { label: "Не можу сфокусуватись", emoji: "🧠", penalty: 6 },
-  { label: "Низький настрій", emoji: "😔", penalty: 7 },
-  { label: "Все ок", emoji: "✅", penalty: 0 },
+  { label: "Стрес", penalty: 8 },
+  { label: "Втома", penalty: 8 },
+  { label: "Тривога", penalty: 7 },
+  { label: "Не можу сфокусуватись", penalty: 6 },
+  { label: "Низький настрій", penalty: 7 },
+  { label: "Все ок", penalty: 0 },
 ];
 
 const ENERGY_GIVERS = [
-  { label: "Прогулянка", emoji: "🚶" },
-  { label: "Медитація", emoji: "🧘" },
-  { label: "Музика", emoji: "🎵" },
-  { label: "Кава", emoji: "☕" },
-  { label: "Читання", emoji: "📚" },
-  { label: "Спорт", emoji: "🏃" },
-  { label: "Природа", emoji: "🌿" },
-  { label: "Ванна", emoji: "🛁" },
-  { label: "Смачна їжа", emoji: "🍓" },
-  { label: "Хороший сон", emoji: "💤" },
-  { label: "Ігри", emoji: "🎮" },
-  { label: "Творчість", emoji: "✍️" },
-  { label: "Тварини", emoji: "🐕" },
-  { label: "Друзі", emoji: "👥" },
+  { label: "Прогулянка" },
+  { label: "Медитація" },
+  { label: "Музика" },
+  { label: "Кава" },
+  { label: "Читання" },
+  { label: "Спорт" },
+  { label: "Природа" },
+  { label: "Ванна" },
+  { label: "Смачна їжа" },
+  { label: "Хороший сон" },
+  { label: "Ігри" },
+  { label: "Творчість" },
+  { label: "Тварини" },
+  { label: "Друзі" },
 ];
 
 const ENERGY_DRAINS = [
-  { label: "Соцмережі", emoji: "📱" },
-  { label: "Пізній сон", emoji: "😴" },
-  { label: "Конфлікти", emoji: "😤" },
-  { label: "Перевтома", emoji: "🏢" },
-  { label: "Новини", emoji: "📰" },
-  { label: "Фастфуд", emoji: "🍔" },
-  { label: "Самотність", emoji: "😔" },
-  { label: "Фінансовий стрес", emoji: "💸" },
-  { label: "Шум", emoji: "🔇" },
-  { label: "Прокрастинація", emoji: "⏰" },
+  { label: "Соцмережі" },
+  { label: "Пізній сон" },
+  { label: "Конфлікти" },
+  { label: "Перевтома" },
+  { label: "Новини" },
+  { label: "Фастфуд" },
+  { label: "Самотність" },
+  { label: "Фінансовий стрес" },
+  { label: "Шум" },
+  { label: "Прокрастинація" },
 ];
 
 // --- Компоненти ---
@@ -133,6 +135,7 @@ const MiniSphere = ({ pulse, aura }: { pulse: Animated.Value; aura: Animated.Val
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { setScore: setCtxScore, setUserName: setCtxUserName } = useAppStore();
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
@@ -144,7 +147,7 @@ export default function OnboardingScreen() {
   const [giversText, setGiversText] = useState("");
   const [drains, setDrains] = useState<string[]>([]);
   const [drainsText, setDrainsText] = useState("");
-  const [score, setScore] = useState(0);
+  const [score, setLocalScore] = useState(0);
 
   const pulse     = useRef(new Animated.Value(1)).current;
   const aura      = useRef(new Animated.Value(0.08)).current;
@@ -229,14 +232,15 @@ export default function OnboardingScreen() {
 
   const goToResult = () => {
     const s = calculateFinalScore();
-    setScore(s);
+    setLocalScore(s);
     fadeToNext(7);
   };
 
   const finishOnboarding = async () => {
     await AsyncStorage.setItem("naelo_onboarded", "true");
-    await AsyncStorage.setItem("naelo_name", name);
-    await AsyncStorage.setItem("naelo_score", String(score));
+    // Записуємо в контекст — він сам пише в AsyncStorage
+    setCtxScore(score);
+    setCtxUserName(name);
     await AsyncStorage.setItem("naelo_goal", goal || customGoal);
     await AsyncStorage.setItem("naelo_energy", energyLevel?.toString() || "50");
     await AsyncStorage.setItem("naelo_givers", JSON.stringify(givers));
@@ -263,6 +267,9 @@ export default function OnboardingScreen() {
           style={styles.welcomeBg}
           contentFit="cover"
           nativeControls={false}
+          allowsVideoFrameAnalysis={false}
+          allowsPictureInPicture={false}
+          allowsFullscreen={false}
           onFirstFrameRender={handleVideoReady}
         />
       </Animated.View>
@@ -311,13 +318,11 @@ export default function OnboardingScreen() {
                       style={[styles.optionBtn, goal === g.label && styles.optionBtnActive]}
                       onPress={() => { setGoal(g.label); setTimeout(() => fadeToNext(3), 300); }}
                     >
-                      <Text style={styles.optionEmoji}>{g.emoji}</Text>
                       <Text style={[styles.optionText, goal === g.label && styles.optionTextActive]}>{g.label}</Text>
                     </TouchableOpacity>
                   ))}
                   {/* Своє */}
                   <View style={[styles.optionBtn, styles.customRow]}>
-                    <Text style={styles.optionEmoji}>✏️</Text>
                     <TextInput
                       style={styles.customInput}
                       placeholder="Своє..."
@@ -356,7 +361,6 @@ export default function OnboardingScreen() {
                       style={[styles.energyBtn, energyLevel === e.value && styles.energyBtnActive]}
                       onPress={() => { setEnergyLevel(e.value); setTimeout(() => fadeToNext(4), 300); }}
                     >
-                      <Text style={styles.energyEmoji}>{e.emoji}</Text>
                       <Text style={[styles.energyLabel, energyLevel === e.value && styles.energyLabelActive]}>{e.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -390,7 +394,6 @@ export default function OnboardingScreen() {
                       style={[styles.tag, concerns.includes(c.label) && styles.tagActive]}
                       onPress={() => toggleTag(c.label, concerns, setConcerns)}
                     >
-                      <Text style={styles.tagEmoji}>{c.emoji}</Text>
                       <Text style={[styles.tagText, concerns.includes(c.label) && styles.tagTextActive]}>{c.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -430,7 +433,6 @@ export default function OnboardingScreen() {
                       style={[styles.tag, givers.includes(g.label) && styles.tagActive]}
                       onPress={() => toggleTag(g.label, givers, setGivers)}
                     >
-                      <Text style={styles.tagEmoji}>{g.emoji}</Text>
                       <Text style={[styles.tagText, givers.includes(g.label) && styles.tagTextActive]}>{g.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -470,7 +472,6 @@ export default function OnboardingScreen() {
                       style={[styles.tag, styles.tagDrain, drains.includes(d.label) && styles.tagDrainActive]}
                       onPress={() => toggleTag(d.label, drains, setDrains)}
                     >
-                      <Text style={styles.tagEmoji}>{d.emoji}</Text>
                       <Text style={[styles.tagText, drains.includes(d.label) && styles.tagTextDrainActive]}>{d.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -488,9 +489,10 @@ export default function OnboardingScreen() {
             {/* ============= КРОК 7 — Результат ============= */}
             {step === 7 && (
               <View style={styles.stepContainer}>
+                <SoulFlame size={130} showRings={false} style={{ marginBottom: -10 }} />
                 <View style={styles.glassCard}>
                 <Text style={styles.resultTitle}>
-                  {name}, твій вогник запалено! 🔥
+                  {name}, твій вогник запалено!
                 </Text>
                 <Text style={styles.resultScore}>{score}%</Text>
                 <Text style={styles.resultLabel}>Початковий Naelo Score</Text>
@@ -503,17 +505,17 @@ export default function OnboardingScreen() {
                 </Text>
                 <View style={styles.resultDetails}>
                   <Text style={styles.resultDetailText}>
-                    🎯 {goal || customGoal}
+                    Ціль: {goal || customGoal}
                   </Text>
                   <Text style={styles.resultDetailText}>
-                    ⚡ {givers.length > 0 ? `${givers.length} джерел енергії` : "Твої джерела сили"} → стануть твоїми звичками
+                    {givers.length > 0 ? `${givers.length} джерел енергії` : "Твої джерела сили"} → стануть твоїми звичками
                   </Text>
                   <Text style={styles.resultDetailText}>
-                    🛡 {drains.length > 0 ? `${drains.length} загроз` : "Твої виклики"} → Naelo слідкуватиме
+                    {drains.length > 0 ? `${drains.length} загроз` : "Твої виклики"} → Naelo слідкуватиме
                   </Text>
                 </View>
                 <TouchableOpacity style={styles.btnPrimary} onPress={finishOnboarding}>
-                  <Text style={styles.btnText}>Увійти в Naelo ✨</Text>
+                  <Text style={styles.btnText}>Увійти в Naelo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.privacyConsent}
@@ -572,30 +574,27 @@ const styles = StyleSheet.create({
 
   // Опції (мета)
   optionsGrid: { width: "100%", gap: 10 },
-  optionBtn: { width: "100%", flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(0,0,0,0.45)" },
+  optionBtn: { width: "100%", flexDirection: "row", alignItems: "center", paddingVertical: 16, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(0,0,0,0.45)" },
   optionBtnActive: { borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.12)" },
-  optionEmoji: { fontSize: 20 },
   optionText: { color: "rgba(255,255,255,0.75)", fontSize: 15, flex: 1 },
   optionTextActive: { color: "#FFB300", fontWeight: "600" },
   customRow: { gap: 8 },
   customInput: { flex: 1, color: "#fff", fontSize: 15, paddingVertical: 0 },
 
   // Енергія
-  energyRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 8 },
-  energyBtn: { width: (width - 72) / 2, alignItems: "center", paddingVertical: 20, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.04)" },
+  energyRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  energyBtn: { flexBasis: "47%", flexGrow: 1, alignItems: "center", justifyContent: "center", paddingVertical: 22, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.04)" },
   energyBtnActive: { borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.12)" },
-  energyEmoji: { fontSize: 32, marginBottom: 8 },
-  energyLabel: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: "500" },
+  energyLabel: { color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: "500", textAlign: "center" },
   energyLabelActive: { color: "#FFB300", fontWeight: "700" },
 
   // Теги (givers/concerns)
-  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
-  tag: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(0,0,0,0.45)" },
+  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: { flexBasis: "47%", flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 12, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(0,0,0,0.45)" },
   tagActive: { borderColor: "#FFB300", backgroundColor: "rgba(255,179,0,0.15)" },
   tagDrain: { borderColor: "rgba(255,255,255,0.12)" },
   tagDrainActive: { borderColor: "#FF6B6B", backgroundColor: "rgba(255,107,107,0.12)" },
-  tagEmoji: { fontSize: 16 },
-  tagText: { color: "rgba(255,255,255,0.7)", fontSize: 13 },
+  tagText: { color: "rgba(255,255,255,0.7)", fontSize: 13, textAlign: "center" },
   tagTextActive: { color: "#FFB300", fontWeight: "600" },
   tagTextDrainActive: { color: "#FF6B6B", fontWeight: "600" },
 
@@ -630,7 +629,7 @@ const styles = StyleSheet.create({
 
   // Результат
   resultTitle: { color: "#fff", fontSize: 22, fontWeight: "700", textAlign: "center" },
-  resultScore: { color: "#FFB300", fontSize: 64, fontWeight: "800" },
+  resultScore: { color: "#FFB300", fontSize: 64, fontWeight: "800", textAlign: "center", width: "100%" },
   resultLabel: { color: "rgba(255,255,255,0.5)", fontSize: 14, marginTop: -8 },
   resultSub: { color: "rgba(255,255,255,0.6)", fontSize: 15, textAlign: "center", lineHeight: 22 },
   resultDetails: { width: "100%", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 16, gap: 8, marginTop: 4 },

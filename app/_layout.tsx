@@ -2,6 +2,7 @@
 import { Stack } from "expo-router";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { useEffect } from "react";
+import { AppProvider } from "../lib/AppContext";
 import * as Notifications from "expo-notifications";
 import { auth } from "../lib/firebase";
 import { setAnalyticsUser, logMessage, getCrashlyticsInstance } from "../lib/analytics";
@@ -49,6 +50,7 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <AppProvider>
     <KeyboardProvider>
       <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
         <Stack.Screen name="index" />
@@ -67,5 +69,6 @@ export default function RootLayout() {
         <Stack.Screen name="paywall" />
       </Stack>
     </KeyboardProvider>
+    </AppProvider>
   );
 }
