@@ -1,4 +1,4 @@
-// ~/luma/app/home.tsx
+// ~/naelo-app/app/home.tsx
 // Головний екран — Вогник душі + питання дня + порада Naelo
 
 import { useEffect, useRef, useState } from "react";
@@ -125,9 +125,12 @@ export default function HomeScreen() {
           const profile = profileData.profile;
 
           if (profile) {
-            // API — джерело правди; беремо більше між DB і кешем контексту
-            const s = Math.max(profile.score || 50, score);
-            setScore(s);           // → оновлює контекст + AsyncStorage
+            // DB — джерело правди для score (актуальний стан між девайсами).
+            // ВАЖЛИВО: НЕ використовуємо Math.max(profile.score, score) — інакше
+            // зменшення score (напр. -3 від драйнера) могло б зреверитись назад
+            // на стару (більшу) DB-копію якщо PATCH ще не пройшов до повторного завантаження.
+            // typeof check, щоб 0 не перетворився на 50 через `|| 50`.
+            if (typeof profile.score === "number") setScore(profile.score);
             setStreak(profile.streak || 0);
             if (profile.name) setUserName(profile.name);
           }
@@ -232,42 +235,51 @@ export default function HomeScreen() {
   };
 
   // --- Зберегти відповідь ---
+  // Логіка score: ОДНА змінна `delta` — починається з local evaluation,
+  // ОПЦІОНАЛЬНО замінюється на AI delta (лише якщо AI повернув валідне число).
+  // ОДНА базова `baselineScore` фіксована на початку — `setScore(baseline + delta)` завжди консистентний.
   const submitAnswer = async () => {
     if (!answerText.trim()) return;
     Keyboard.dismiss();
 
-    // Спочатку показати результат з локальним розрахунком, потім оновити AI
-    const localDelta = evaluateLocal(answerText);
-    const newScore = Math.max(5, Math.min(95, score + localDelta));
+    const baselineScore = score;                          // ⬅️ зафіксували baseline ОДИН РАЗ
     const todayStr = new Date().toISOString().split("T")[0];
     const noteText = answerText.trim();
+    const clamp = (n: number) => Math.max(5, Math.min(95, n));
 
-    setScoreChange(localDelta);
-    setScore(newScore);
+    // ── Phase 1: миттєвий local feedback ──────────────────────────────
+    let delta = evaluateLocal(noteText);
+    let resultingScore = clamp(baselineScore + delta);
+
+    setScoreChange(delta);
+    setScore(resultingScore);
     setAnsweredToday(true);
     setShowThankYou(true);
     logEvent("checkin_submit", { text_length: noteText.length });
 
-    // ⚡ ОДРАЗУ записуємо в локальний кеш — щоб /my-path побачив запис,
-    // навіть якщо користувач переключиться раніше, ніж AI/DB встигнуть.
-    try {
-      await AsyncStorage.setItem("naelo_answered_today", todayStr);
-      const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
-      const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
-      const earlyEntry = {
-        id: `local_${todayStr}`,
-        date: todayStr,
-        note: noteText || null,
-        hints: null,
-        question: dailyQ.q,
-        energy: newScore,
-        delta: localDelta,
-      };
-      await AsyncStorage.setItem(
-        "naelo_local_checkins",
-        JSON.stringify([earlyEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
-      );
-    } catch {}
+    // Запис у локальний кеш ОДРАЗУ — щоб /my-path побачив запис до DB POST.
+    const writeLocalEntry = async (energy: number, d: number) => {
+      try {
+        const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
+        const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
+        const entry = {
+          id: `local_${todayStr}`,
+          date: todayStr,
+          note: noteText || null,
+          hints: null,
+          question: dailyQ.q,
+          energy,
+          delta: d,
+        };
+        await AsyncStorage.setItem(
+          "naelo_local_checkins",
+          JSON.stringify([entry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
+        );
+      } catch {}
+    };
+
+    try { await AsyncStorage.setItem("naelo_answered_today", todayStr); } catch {}
+    await writeLocalEntry(resultingScore, delta);
 
     Animated.sequence([
       Animated.timing(thankYouAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
@@ -275,8 +287,10 @@ export default function HomeScreen() {
       Animated.timing(thankYouAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
     ]).start(() => setShowThankYou(false));
 
-    // AI оцінка асинхронно
-    let delta = localDelta;
+    // ── Phase 2: AI refinement (опціонально) ──────────────────────────
+    // КРИТИЧНО: переписуємо delta ТІЛЬКИ якщо AI повернув валідне число.
+    // null/undefined/error → залишаємо local delta. Це й було причиною
+    // регресу до 45% — AI повертав {delta: 0} при помилці і скасовував local -3.
     try {
       const evalRes = await fetch(`${API_URL}/ai/evaluate`, {
         method: "POST",
@@ -284,40 +298,20 @@ export default function HomeScreen() {
         body: JSON.stringify({ text: noteText, question: dailyQ.q }),
       });
       const evalJson = await evalRes.json();
-      if (typeof evalJson.delta === "number") {
+      if (evalJson.delta !== null && typeof evalJson.delta === "number") {
         delta = evalJson.delta;
-        const aiScore = Math.max(5, Math.min(95, score + delta));
-        setScore(aiScore);
+        resultingScore = clamp(baselineScore + delta);   // ⬅️ baseline незмінний
+        setScore(resultingScore);
         setScoreChange(delta);
       }
-    } catch (e) { /* fallback до local */ }
+    } catch {
+      // Network error — залишаємо local delta, нічого не міняємо
+    }
 
-    const finalScore = Math.max(5, Math.min(95, score + delta));
+    // ── Phase 3: оновити локальний кеш фінальними значеннями ─────────
+    await writeLocalEntry(resultingScore, delta);
 
-    // Зберігаємо — setScore пише в контекст + AsyncStorage автоматично
-    setScore(finalScore);
-    setScoreChange(delta);
-
-    // Оновити локальний запис фінальним delta/energy після AI
-    try {
-      const localEntry = {
-        id: `local_${todayStr}`,
-        date: todayStr,
-        note: noteText || null,
-        hints: null,
-        question: dailyQ.q,
-        energy: finalScore,
-        delta,
-      };
-      const prevRaw = await AsyncStorage.getItem("naelo_local_checkins");
-      const prevCheckins: any[] = prevRaw ? JSON.parse(prevRaw) : [];
-      await AsyncStorage.setItem(
-        "naelo_local_checkins",
-        JSON.stringify([localEntry, ...prevCheckins.filter((e: any) => e.date !== todayStr)].slice(0, 30))
-      );
-    } catch {}
-
-    // Якщо є uid — зберігаємо і в DB
+    // ── Phase 4: sync з DB (best-effort) ─────────────────────────────
     try {
       const uid = userIdRef.current || userId || auth.currentUser?.uid;
       if (uid) {
@@ -327,10 +321,10 @@ export default function HomeScreen() {
           body: JSON.stringify({
             user_id: uid,
             date: todayStr,
-            note: answerText.trim() || null,
+            note: noteText || null,
             hints: null,
             question: dailyQ.q,
-            energy: finalScore,
+            energy: resultingScore,
             delta,
           }),
         });
@@ -354,13 +348,14 @@ export default function HomeScreen() {
             newStreak = profile.streak || 1;
           }
         }
+        setStreak(newStreak);   // ⬅️ було забуто — streak оновлювався тільки в DB
 
         await fetch(`${API_URL}/profile`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: uid,
-            score: finalScore,
+            score: resultingScore,
             streak: newStreak,
             momentum: delta,
             last_activity: new Date().toISOString(),
