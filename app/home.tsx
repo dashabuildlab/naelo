@@ -27,7 +27,13 @@ const HERO_BG = require("../assets/screens/home-hero.png");
 
 // Зображення для блоків (із 3D-ефектами та свічінням від дизайнера):
 const STREAK_ARCH    = require("../assets/screens/streak-arch.png");      // брама зі сходами для streak
-const SYMBOL_BRIDGE  = require("../assets/screens/symbol-bridge.png");    // міст для "Символ дня" (Міст)
+
+// Символи дня — 5 образів-метафор, підбираються за поточним score
+const SYMBOL_DAWN    = require("../assets/screens/symbol-dawn.png");      // 70-95: світанок
+const SYMBOL_BRIDGE  = require("../assets/screens/symbol-bridge.png");    // 50-69: міст
+const SYMBOL_ROOT    = require("../assets/screens/symbol-root.png");      // 30-49: корінь
+const SYMBOL_SILENCE = require("../assets/screens/symbol-silence.png");   // 10-29: тиша
+const SYMBOL_WAVE    = require("../assets/screens/symbol-wave.png");      //  5-9:  хвиля
 
 // --- Світлячки (sparks навколо сфери) ---
 const SPARKS = Array.from({ length: 16 }).map((_, i) => ({
@@ -88,17 +94,53 @@ const DAILY_QUESTIONS = [
   { q: "Що тебе здивувало цього тижня?",  hints: ["Приємне", "Дивне", "Відкриття", "Зустріч"] },
 ];
 
-// --- Символ дня (ротація) ---
-// TODO: коли будуть готові реальні зображення — підставити в SYMBOLS[i].image
+// --- Символ дня ---
+// 5 образів-метафор, підбираються за поточним score (вогник душі).
+// Логіка: коли користувач у фазі росту — бачить символ руху (Світанок/Міст).
+// Коли вогник притух — символ прийняття та опори (Корінь/Тиша/Хвиля).
+// Це невербальна підтримка яка резонує зі станом, а не "візьми себе в руки".
 const SYMBOLS = [
-  { title: "Міст",      icon: "git-network-outline" as const, text: "Іноді головне — не перейти одразу, а дозволити собі наблизитись." },
-  { title: "Маяк",      icon: "navigate-outline"  as const, text: "Світло знаходить тебе навіть у тумані. Просто продовжуй світити." },
-  { title: "Стежка",    icon: "trail-sign-outline" as const, text: "Шлях створюється кроком. Не поспішай — він уже починається." },
-  { title: "Тиша",      icon: "moon-outline" as const,      text: "У тиші чути те, що інакше тонуло б у шумі. Дозволь їй говорити." },
-  { title: "Вода",      icon: "water-outline" as const,     text: "Гнучкість — це не слабкість. Вода точить камінь не силою, а постійністю." },
-  { title: "Корінь",    icon: "leaf-outline" as const,      text: "Сильні корені не помітні. Але саме вони тримають тебе у вітрі." },
-  { title: "Світанок",  icon: "sunny-outline" as const,     text: "Кожен ранок — нова можливість почати спочатку. Без минулих помилок." },
+  {
+    id: "dawn",
+    title: "Світанок",
+    image: SYMBOL_DAWN,
+    minScore: 70,
+    text: "Ти у фазі росту. Що зробиш з цією силою?",
+  },
+  {
+    id: "bridge",
+    title: "Міст",
+    image: SYMBOL_BRIDGE,
+    minScore: 50,
+    text: "Іноді головне — не перейти одразу, а дозволити собі наблизитись.",
+  },
+  {
+    id: "root",
+    title: "Корінь",
+    image: SYMBOL_ROOT,
+    minScore: 30,
+    text: "Сильні корені не помітні. Але саме вони тримають тебе у вітрі.",
+  },
+  {
+    id: "silence",
+    title: "Тиша",
+    image: SYMBOL_SILENCE,
+    minScore: 10,
+    text: "У тиші чути те, що інакше тонуло б у шумі. Дозволь їй говорити.",
+  },
+  {
+    id: "wave",
+    title: "Хвиля",
+    image: SYMBOL_WAVE,
+    minScore: 0,
+    text: "Найтемніша точка хвилі — за секунду до підйому. Дихай.",
+  },
 ];
+
+// Підбір символу за score: знаходимо перший де score >= minScore
+// (масив відсортований за спаданням minScore).
+const pickSymbol = (score: number) =>
+  SYMBOLS.find((s) => score >= s.minScore) || SYMBOLS[SYMBOLS.length - 1];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -118,10 +160,9 @@ export default function HomeScreen() {
   const today = new Date();
   const todayIndex = today.getDate() % DAILY_QUESTIONS.length;
   const dailyQ = DAILY_QUESTIONS[todayIndex];
-  // Тимчасово: завжди показуємо "Міст" — єдиний символ з реальним фото.
-  // Коли будуть готові фото для решти 6 символів — повернути ротацію:
-  //   const symbolIndex = today.getDate() % SYMBOLS.length;
-  const todaySymbol = SYMBOLS.find(s => s.title === "Міст") || SYMBOLS[0];
+  // Символ дня — підбираємо за score (вогник душі):
+  //   95-70 → Світанок | 69-50 → Міст | 49-30 → Корінь | 29-10 → Тиша | 9-0 → Хвиля
+  const todaySymbol = pickSymbol(score);
   const greeting = getTimeGreeting();
 
   useEffect(() => { logScreen("Home"); }, []);
@@ -559,13 +600,8 @@ export default function HomeScreen() {
           </View>
           <View style={styles.symbolRow}>
             <View style={styles.symbolImage}>
-              {/* Якщо символ дня — Міст: використовуємо реальне зображення.
-                  Інакше fallback на Ionicons (для інших 6 символів асети будуть пізніше) */}
-              {todaySymbol.title === "Міст" ? (
-                <Image source={SYMBOL_BRIDGE} style={styles.symbolImageInner} resizeMode="cover" />
-              ) : (
-                <Ionicons name={todaySymbol.icon} size={36} color="rgba(255,179,0,0.5)" />
-              )}
+              {/* Усі 5 символів мають реальні зображення — рендеримо image з активного символу */}
+              <Image source={todaySymbol.image} style={styles.symbolImageInner} resizeMode="cover" />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={styles.symbolTitle}>{todaySymbol.title}</Text>
