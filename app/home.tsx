@@ -15,12 +15,15 @@ import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 import KeyboardScreen from "../lib/KeyboardScreen";
-import SacredGeometry from "../lib/SacredGeometry";
 import { useAppStore } from "../lib/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import { logScreen, logEvent } from "../lib/analytics";
 
 const { width, height } = Dimensions.get("window");
+
+// Композитне фонове зображення для /home: сфера-вогник з геометричною сіткою,
+// маяк праворуч, нічне небо, океан унизу. Все в одному JPG для швидкого рендеру.
+const HERO_BG = require("../assets/screens/home-hero.jpg");
 
 // --- Світлячки (sparks навколо сфери) ---
 const SPARKS = Array.from({ length: 16 }).map((_, i) => ({
@@ -363,16 +366,13 @@ export default function HomeScreen() {
     setAnswerText("");
   };
 
-  // --- Динамічний фон сфери (4 рівні) ---
-  const BG_LEVELS = [
-    require("../assets/screens/home-1.jpg"),
-    require("../assets/screens/home-2.jpg"),
-    require("../assets/screens/home-3.jpg"),
-    require("../assets/screens/home-4.jpg"),
-  ];
-  const bgIndex = score >= 60 ? 3 : score >= 40 ? 2 : score >= 20 ? 1 : 0;
-
-  // Score-bage delta = scoreChange (last applied), показуємо якщо ≠ 0
+  // --- Динамічне затемнення фонової композиції ---
+  // Одне базове зображення (сфера + сітка + маяк + океан).
+  // Опасити чорного overlay змінюється від score: чим нижчий вогник — тим темніше.
+  // score=95 → dim=0   (повна яскравість)
+  // score=50 → dim=0.30
+  // score=5  → dim=0.60 (приглушений вогник)
+  const dimOpacity = Math.max(0, Math.min(0.60, (95 - score) / 150));
   const showDelta = scoreChange !== 0;
 
   return (
@@ -381,13 +381,13 @@ export default function HomeScreen() {
 
       {/* ═════ HERO: сфера з фоном + хедер + score ═════ */}
       <View style={styles.hero}>
-        <Image source={BG_LEVELS[bgIndex]} style={styles.heroBg} resizeMode="cover" />
+        {/* Готова композиція: сфера + сітка + маяк + океан вже в одному JPG.
+            resizeMode="cover" — обріже бокові краї у portrait, центрує по сфері. */}
+        <Image source={HERO_BG} style={styles.heroBg} resizeMode="cover" />
 
-        {/* Sacred geometry overlay: коло + радіальні лінії + точки навколо сфери.
-            Малюється SVG-ом, накладається поверх фону. Повільно обертається. */}
-        <View style={styles.sacredWrap} pointerEvents="none">
-          <SacredGeometry size={Math.min(width * 0.92, 380)} opacity={0.55} rotate />
-        </View>
+        {/* Затемнення поверх — динамічно темніше при низькому score
+            (вогник "притухає"). При повному score — 0, при найнижчому — 0.55. */}
+        <View style={[styles.heroDim, { backgroundColor: `rgba(10,8,18,${dimOpacity})` }]} pointerEvents="none" />
 
         {SPARKS.map((s) => <Spark key={s.id} {...s} />)}
 
@@ -662,15 +662,11 @@ const styles = StyleSheet.create({
     height: height * 0.22,
   },
 
-  // Sacred geometry overlay — центрована поверх сфери у hero.
-  // Позиціонування узгоджене з sphereTap (top: height * 0.18) — щоб центр
-  // обчисленого розміру SVG (≈190px) припадав на центр візуальної сфери.
-  sacredWrap: {
+  // Динамічне затемнення поверх композиції — затемнюється коли score падає.
+  // Покриває всю hero-зону. Сонячне відтворення цвіту через RGB(10,8,18) — наш bgDark.
+  heroDim: {
     position: "absolute",
-    top: height * 0.10,
-    left: 0, right: 0,
-    alignItems: "center",
-    zIndex: 2,
+    top: 0, left: 0, right: 0, bottom: 0,
   },
 
   // Хедер
