@@ -15,6 +15,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES } from "../lib/theme";
 import BottomNav from "../lib/BottomNav";
 import KeyboardScreen from "../lib/KeyboardScreen";
+import SacredGeometry from "../lib/SacredGeometry";
 import { useAppStore } from "../lib/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import { logScreen, logEvent } from "../lib/analytics";
@@ -381,6 +382,13 @@ export default function HomeScreen() {
       {/* ═════ HERO: сфера з фоном + хедер + score ═════ */}
       <View style={styles.hero}>
         <Image source={BG_LEVELS[bgIndex]} style={styles.heroBg} resizeMode="cover" />
+
+        {/* Sacred geometry overlay: коло + радіальні лінії + точки навколо сфери.
+            Малюється SVG-ом, накладається поверх фону. Повільно обертається. */}
+        <View style={styles.sacredWrap} pointerEvents="none">
+          <SacredGeometry size={Math.min(width * 0.92, 380)} opacity={0.55} rotate />
+        </View>
+
         {SPARKS.map((s) => <Spark key={s.id} {...s} />)}
 
         {/* Затемнення низу — плавний перехід у контент */}
@@ -652,6 +660,17 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0, left: 0, right: 0,
     height: height * 0.22,
+  },
+
+  // Sacred geometry overlay — центрована поверх сфери у hero.
+  // Позиціонування узгоджене з sphereTap (top: height * 0.18) — щоб центр
+  // обчисленого розміру SVG (≈190px) припадав на центр візуальної сфери.
+  sacredWrap: {
+    position: "absolute",
+    top: height * 0.10,
+    left: 0, right: 0,
+    alignItems: "center",
+    zIndex: 2,
   },
 
   // Хедер
