@@ -1,4 +1,4 @@
-// ~/luma/app/dream-path.tsx
+// ~/naelo-app/app/dream-path.tsx
 // Навігатор мрії — API (PostgreSQL) + маяк, кроки, фільтр істинності
 
 import { useEffect, useRef, useState, useCallback } from "react";

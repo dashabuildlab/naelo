@@ -399,8 +399,9 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
-        {/* Простір для сфери */}
-        <View style={{ height: height * 0.22 }} />
+        {/* Простір для сфери — зменшено з 0.22 до 0.16, щоб дати "повітря"
+            і контенту місце взаємодії (форма питання видніша) */}
+        <View style={{ height: height * 0.16 }} />
 
         {/* Вогник душі */}
         <View style={styles.scoreBlock}>
@@ -414,13 +415,16 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Порада Naelo */}
-        <View style={styles.adviceCard}>
-          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-            <Ionicons name={advice.icon as any} size={18} color={COLORS.primary} style={{ marginTop: 2 }} />
-            <Text style={[styles.adviceText, { flex: 1 }]}>{advice.text}</Text>
+        {/* Порада Naelo — показуємо тільки якщо чекін на сьогодні вже зроблено.
+            Інакше це б дублювало CTA з полем питання нижче. */}
+        {answeredToday && (
+          <View style={styles.adviceCard}>
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+              <Ionicons name={advice.icon as any} size={18} color={COLORS.primary} style={{ marginTop: 2 }} />
+              <Text style={[styles.adviceText, { flex: 1 }]}>{advice.text}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Анімація подяки */}
         {showThankYou && (
@@ -494,11 +498,14 @@ const styles = StyleSheet.create({
   absoluteBg: { position: "absolute", top: 0, left: 0, width, height: width * 1.16 },
 
   // Зона тапу над сферою фонового зображення → веде в чат
+  // Зона тапу зменшена до 200px (раніше 280) — на ~30% менше,
+  // щоб точніше збігалась з видимою сферою на фоні і не перехоплювала
+  // тапи з контенту нижче.
   sphereWrap: {
     position: "absolute",
-    width: 280, height: 280,
-    top: height * 0.25 - 140,
-    left: (width - 280) / 2,
+    width: 200, height: 200,
+    top: height * 0.20 - 100,
+    left: (width - 200) / 2,
     zIndex: 10,
   },
 
@@ -519,7 +526,7 @@ const styles = StyleSheet.create({
   streakText: { color: COLORS.primary, fontSize: 13, fontWeight: "600" },
 
   // Порада
-  adviceCard: { width: "100%", maxWidth: CONTENT_MAX_W, paddingVertical: 8, paddingHorizontal: 14, borderRadius: SIZES.radius, backgroundColor: "rgba(255,179,0,0.08)", borderWidth: 1, borderColor: "rgba(255,179,0,0.15)", marginBottom: 10 },
+  adviceCard: { width: "100%", maxWidth: CONTENT_MAX_W, paddingVertical: 12, paddingHorizontal: 14, borderRadius: SIZES.radius, backgroundColor: "rgba(15,10,25,0.85)", borderWidth: 1, borderColor: "rgba(255,179,0,0.25)", marginBottom: 10 },
   adviceText: { color: "rgba(255,255,255,0.75)", fontSize: 14, textAlign: "center", lineHeight: 20 },
 
   // Подяка
@@ -527,7 +534,7 @@ const styles = StyleSheet.create({
   thankYouText: { color: COLORS.primary, fontSize: 16, fontWeight: "700" },
 
   // Питання дня
-  questionCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: SIZES.radiusLarge, padding: 14, gap: 10 },
+  questionCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(15,10,25,0.92)", borderRadius: SIZES.radiusLarge, padding: 14, gap: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
   questionTitle: { color: COLORS.text, fontSize: 16, fontWeight: "700" },
 
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
@@ -537,12 +544,13 @@ const styles = StyleSheet.create({
   sendBtnDisabled: { backgroundColor: "rgba(255,255,255,0.1)" },
   sendIcon: { color: "#0a0812", fontSize: 20, fontWeight: "800" },
 
+  // Чіпи-підказки — тонша рамка замість заливки, щоб не зливалися з полем вводу
   hintsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  hintChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.08)" },
-  hintText: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
+  hintChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.16)", backgroundColor: "transparent" },
+  hintText: { color: "rgba(255,255,255,0.65)", fontSize: 12, fontWeight: "500" },
 
   // Вже відповів
-  answeredCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(0,0,0,0.4)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: SIZES.radiusLarge, padding: 16, alignItems: "center", gap: 8 },
+  answeredCard: { width: "100%", maxWidth: CONTENT_MAX_W, backgroundColor: "rgba(15,10,25,0.88)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", borderRadius: SIZES.radiusLarge, padding: 16, alignItems: "center", gap: 8 },
   answeredTitle: { color: COLORS.text, fontSize: 17, fontWeight: "600" },
   answeredSub: { color: "rgba(255,255,255,0.5)", fontSize: 14 },
   chatBtn: { marginTop: 4, paddingHorizontal: 24, paddingVertical: 12, borderRadius: SIZES.radiusLarge, borderWidth: 1, borderColor: COLORS.primaryGlow, backgroundColor: COLORS.primaryFaint },

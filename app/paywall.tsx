@@ -1,4 +1,4 @@
-// ~/luma/app/paywall.tsx
+// ~/naelo-app/app/paywall.tsx
 // Пейвол — RevenueCat premium підписка
 
 import { useEffect, useState } from "react";
@@ -75,8 +75,8 @@ export default function PaywallScreen() {
     try {
       const ok = await purchasePackage(selected);
       if (ok) {
-        Alert.alert("Naelo Premium активовано!", "Дякуємо ✨ Твій вогник тепер без меж.", [
-          { text: "Чудово!", onPress: () => router.back() },
+        Alert.alert("Naelo Premium активовано", "Дякуємо. Твій вогник тепер без меж.", [
+          { text: "Чудово", onPress: () => router.back() },
         ]);
       }
     } catch (e: any) {
@@ -97,7 +97,7 @@ export default function PaywallScreen() {
     try {
       const ok = await restorePurchases();
       Alert.alert(
-        ok ? "Відновлено! ✓" : "Покупок не знайдено",
+        ok ? "Відновлено" : "Покупок не знайдено",
         ok ? "Твій Premium знову активний." : "Жодних попередніх покупок не знайдено."
       );
       if (ok) router.back();
@@ -130,28 +130,15 @@ export default function PaywallScreen() {
           <Text style={styles.heroSub}>Розкрий повний потенціал свого вогника</Text>
         </View>
 
-        {/* ── Порівняння планів ── */}
-        <View style={styles.compareRow}>
-          {/* Безкоштовний */}
-          <View style={styles.freeCard}>
-            <Text style={styles.planLabel}>Безкоштовно</Text>
-            {FREE_FEATURES.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <Ionicons name="checkmark" size={13} color={COLORS.textMuted} style={{ marginTop: 1 }} />
-                <Text style={styles.featureTextFree}>{f}</Text>
-              </View>
-            ))}
-          </View>
-          {/* Premium */}
-          <View style={styles.premiumCard}>
-            <Text style={styles.planLabelPremium}>Premium ✦</Text>
-            {PREMIUM_FEATURES.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <Ionicons name={f.icon as any} size={13} color={COLORS.primary} style={{ marginTop: 1 }} />
-                <Text style={styles.featureTextPremium}>{f.text}</Text>
-              </View>
-            ))}
-          </View>
+        {/* ── Premium-картка (одноколонкова) ── */}
+        <View style={styles.premiumCard}>
+          <Text style={styles.planLabelPremium}>Premium</Text>
+          {PREMIUM_FEATURES.map((f, i) => (
+            <View key={i} style={styles.featureRow}>
+              <Ionicons name={f.icon as any} size={18} color={COLORS.primary} style={{ marginTop: 1 }} />
+              <Text style={styles.featureTextPremium}>{f.text}</Text>
+            </View>
+          ))}
         </View>
 
         {/* ── Пакети підписок ── */}
@@ -225,6 +212,17 @@ export default function PaywallScreen() {
           <Text style={styles.legalLink}>Умови використання</Text>
         </TouchableOpacity>
 
+        {/* ── Що дає Free-план (скромно, нижче) ── */}
+        <View style={styles.freeSection}>
+          <Text style={styles.freeSectionTitle}>Що є в безкоштовному плані</Text>
+          {FREE_FEATURES.map((f, i) => (
+            <View key={i} style={styles.featureRow}>
+              <Ionicons name="checkmark" size={14} color={COLORS.textMuted} style={{ marginTop: 2 }} />
+              <Text style={styles.featureTextFree}>{f}</Text>
+            </View>
+          ))}
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -252,21 +250,43 @@ const styles = StyleSheet.create({
   heroTitle: { color: COLORS.text, fontSize: 26, fontWeight: "800", letterSpacing: 0.5 },
   heroSub:   { color: COLORS.textMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
 
-  // Comparison
-  compareRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
-  freeCard: {
-    flex: 1, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SIZES.radiusLarge,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 14, gap: 8,
-  },
+  // Premium card (одноколонкова, основна) — велика, золотиста, читабельна
   premiumCard: {
-    flex: 1, backgroundColor: "rgba(255,179,0,0.05)", borderRadius: SIZES.radiusLarge,
-    borderWidth: 1, borderColor: "rgba(255,179,0,0.25)", padding: 14, gap: 8,
+    backgroundColor: "rgba(255,179,0,0.06)",
+    borderRadius: SIZES.radiusLarge,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,179,0,0.35)",
+    padding: 20,
+    gap: 14,
+    marginBottom: 24,
   },
-  planLabel:        { color: COLORS.textMuted, fontSize: 12, fontWeight: "700", marginBottom: 2 },
-  planLabelPremium: { color: COLORS.primary,   fontSize: 12, fontWeight: "700", marginBottom: 2 },
-  featureRow:         { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  featureTextFree:    { color: COLORS.textMuted, fontSize: 11, flex: 1, lineHeight: 16 },
-  featureTextPremium: { color: COLORS.textSoft,  fontSize: 11, flex: 1, lineHeight: 16 },
+  planLabelPremium: {
+    color: COLORS.primary,
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  featureRow:         { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  featureTextPremium: { color: "rgba(255,255,255,0.92)", fontSize: 15, flex: 1, lineHeight: 22, fontWeight: "500" as const },
+
+  // Free секція внизу (скромна)
+  freeSection: {
+    marginTop: 28,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.10)",
+    gap: 10,
+  },
+  freeSectionTitle: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 13,
+    fontWeight: "600" as const,
+    letterSpacing: 0.8,
+    textTransform: "uppercase" as const,
+    marginBottom: 6,
+  },
+  featureTextFree: { color: "rgba(255,255,255,0.72)", fontSize: 14, flex: 1, lineHeight: 20 },
 
   // Packages
   packagesWrap:  { marginBottom: 20, gap: 10 },

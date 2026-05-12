@@ -1,4 +1,4 @@
-// ~/luma/app/chat.tsx
+// ~/naelo-app/app/chat.tsx
 // AI Чат з Naelo — з реальним контекстом та історією сесій
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -70,6 +70,7 @@ export default function ChatScreen() {
   const [isPremium, setIsPremium] = useState(false);
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [aiConsentGiven, setAiConsentGiven] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => { logScreen("Chat"); }, []);
   useEffect(() => { loadContext(); checkAiConsent(); loadLastSession(); }, []);
@@ -317,11 +318,36 @@ export default function ChatScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
+      {/* ── Меню (Нова розмова + Історія) ── */}
+      <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
+          <View style={styles.menuBox}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => { setShowMenu(false); startNewChat(); }}
+            >
+              <Ionicons name="create-outline" size={20} color={COLORS.text} />
+              <Text style={styles.menuItemText}>Нова розмова</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => { setShowMenu(false); openHistory(); }}
+            >
+              <Ionicons name="time-outline" size={20} color={COLORS.text} />
+              <Text style={styles.menuItemText}>Історія розмов</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* ── AI Disclosure Modal ── */}
       <Modal visible={showAiConsent} transparent animationType="fade">
         <View style={styles.consentOverlay}>
           <View style={styles.consentBox}>
-            <Text style={styles.consentIcon}>🤖</Text>
+            <View style={styles.consentIconWrap}>
+              <Ionicons name="sparkles-outline" size={28} color={COLORS.primary} />
+            </View>
             <Text style={styles.consentTitle}>AI-чат Naelo</Text>
             <Text style={styles.consentBody}>
               Для відповідей Naelo використовує штучний інтелект від{" "}
@@ -415,41 +441,23 @@ export default function ChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        {/* Хедер */}
+        {/* Мінімалістичний хедер: Назад + Naelo + ... (опціональне меню) */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={openHistory} style={styles.headerBtn}>
-            <Ionicons name="time-outline" size={22} color={COLORS.textMuted} />
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="chevron-back" size={26} color={COLORS.text} />
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {currentSession.title === "Нова розмова" ? "Naelo AI" : currentSession.title}
-            </Text>
-            <View style={styles.onlineRow}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>онлайн</Text>
-            </View>
+            <Text style={styles.headerTitle} numberOfLines={1}>Naelo</Text>
           </View>
 
-          <TouchableOpacity onPress={startNewChat} style={styles.headerBtn}>
-            <Ionicons name="create-outline" size={22} color={COLORS.textMuted} />
+          <TouchableOpacity
+            onPress={() => setShowMenu(true)}
+            style={styles.headerBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={COLORS.textMuted} />
           </TouchableOpacity>
-        </View>
-
-        {/* Контекст бар */}
-        <View style={styles.contextBar}>
-          <Text style={styles.contextText}>
-            Score: <Text style={{ color: score >= 60 ? COLORS.success : COLORS.danger }}>{score}%</Text>
-            {"  "}Вогник душі
-            {momentum !== 0 && (
-              <Text style={{ color: momentum > 0 ? COLORS.success : COLORS.danger }}>
-                {"  "}{momentum > 0 ? "↑" : "↓"}{Math.abs(momentum)}
-              </Text>
-            )}
-            {practicesCount > 0 && (
-              <Text style={{ color: COLORS.primary }}>{"  "}{practicesCount} практик</Text>
-            )}
-          </Text>
         </View>
 
         {/* Повідомлення */}
@@ -527,14 +535,14 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerCenter: { flex: 1, alignItems: "center" },
-  headerTitle: { color: COLORS.text, fontSize: SIZES.fontLG, fontWeight: "700", maxWidth: 200 },
-  onlineRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.success },
-  onlineText: { color: COLORS.success, fontSize: SIZES.fontXS },
+  headerTitle: { color: COLORS.text, fontSize: SIZES.fontLG, fontWeight: "600", letterSpacing: 0.4, maxWidth: 200 },
 
-  // ── Контекст бар ──
-  contextBar: { paddingHorizontal: CONTENT_PAD_H, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: COLORS.borderFaint, backgroundColor: COLORS.cardFaint, alignItems: "center" as const },
-  contextText: { color: COLORS.textMuted, fontSize: 12, textAlign: "center" },
+  // ── Меню (dropdown ellipsis) ──
+  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-start" as const, alignItems: "flex-end" as const, paddingTop: SIZES.paddingTop + 56, paddingHorizontal: 12 },
+  menuBox: { backgroundColor: "rgba(20,16,32,0.98)", borderRadius: 14, paddingVertical: 6, minWidth: 200, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
+  menuItem: { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  menuItemText: { color: COLORS.text, fontSize: 15, fontWeight: "500" as const },
+  menuDivider: { height: 0.5, backgroundColor: "rgba(255,255,255,0.10)", marginHorizontal: 10 },
 
   // ── Повідомлення ──
   messagesList: { flex: 1 },
@@ -561,7 +569,7 @@ const styles = StyleSheet.create({
   // ── AI Consent ──
   consentOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "center", alignItems: "center", padding: 24 },
   consentBox: { backgroundColor: COLORS.card, borderRadius: 20, padding: 28, width: "100%", maxWidth: 380, alignItems: "center" },
-  consentIcon: { fontSize: 40, marginBottom: 12 },
+  consentIconWrap: { marginBottom: 12, alignItems: "center" as const },
   consentTitle: { color: COLORS.text, fontSize: 20, fontWeight: "800", marginBottom: 14, textAlign: "center" },
   consentBody: { color: COLORS.textMuted, fontSize: 14, lineHeight: 22, textAlign: "center", marginBottom: 24 },
   consentAccept: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32, width: "100%", alignItems: "center", marginBottom: 10 },

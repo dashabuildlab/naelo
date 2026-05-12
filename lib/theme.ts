@@ -1,4 +1,4 @@
-// ~/luma/app/luma/lib/theme.ts
+// ~/naelo-app/lib/theme.ts
 // Єдине джерело стилів для всього додатку
 
 import { Dimensions, useWindowDimensions } from "react-native";

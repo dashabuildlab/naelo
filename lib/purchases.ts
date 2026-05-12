@@ -1,4 +1,4 @@
-// ~/luma/lib/purchases.ts
+// ~/naelo-app/lib/purchases.ts
 // RevenueCat premium підписка — ініціалізація та перевірка
 
 import Purchases, { type PurchasesPackage } from "react-native-purchases";

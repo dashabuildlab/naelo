@@ -1,4 +1,4 @@
-// ~/luma/lib/Header.tsx
+// ~/naelo-app/lib/Header.tsx
 // Стандартний хедер — назад + заголовок + правий слот
 
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";

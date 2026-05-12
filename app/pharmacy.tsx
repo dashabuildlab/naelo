@@ -1,4 +1,4 @@
-// ~/luma/app/pharmacy.tsx
+// ~/naelo-app/app/pharmacy.tsx
 // Енергетична аптечка — з трекінгом практик
 
 import { useEffect, useState, useRef, useCallback } from "react";

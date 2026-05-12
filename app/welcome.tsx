@@ -1,4 +1,4 @@
-// ~/luma/app/welcome.tsx
+// ~/naelo-app/app/welcome.tsx
 // Перший екран — привітання, відео фон
 // Тут буде: paywall, контракт, соціальний доказ
 
@@ -8,6 +8,7 @@ import {
   Text, TouchableOpacity, View,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
@@ -52,13 +53,19 @@ export default function WelcomeScreen() {
         allowsFullscreen={false}
       />
 
-      {/* Затемнення знизу */}
-      <View style={styles.gradient} />
+      {/* Темний градієнт знизу вгору — щоб текст та кнопки не губилися
+          на яскравому вогняному відеофоні */}
+      <LinearGradient
+        colors={["rgba(10,8,18,0)", "rgba(10,8,18,0.55)", "rgba(10,8,18,0.92)"]}
+        locations={[0, 0.45, 1]}
+        style={styles.gradient}
+        pointerEvents="none"
+      />
 
       {/* Контент */}
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.contentInner}>
-          <Text style={styles.title}>Привіт! Я Naelo ✨</Text>
+          <Text style={styles.title}>Привіт! Я Naelo</Text>
           <Text style={styles.subtitle}>
             Я допоможу тобі бачити свою енергію{"\n"}і покращувати її щодня
           </Text>
@@ -76,8 +83,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   videoBg: { position: "absolute", top: 0, left: 0, width, height },
   gradient: {
-    position: "absolute", bottom: 0, left: 0, right: 0, height: height * 0.45,
-    backgroundColor: "transparent",
+    position: "absolute", bottom: 0, left: 0, right: 0, height: height * 0.55,
   },
   content: {
     position: "absolute", bottom: height * 0.30, left: 0, right: 0,

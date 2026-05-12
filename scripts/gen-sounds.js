@@ -1,4 +1,4 @@
-// ~/luma/scripts/gen-sounds.js
+// ~/naelo-app/scripts/gen-sounds.js
 // Генерує WAV-файли звукових сигналів для практик
 
 const fs = require("fs");

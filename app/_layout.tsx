@@ -1,4 +1,4 @@
-// ~/luma/app/_layout.tsx
+// ~/naelo-app/app/_layout.tsx
 import { Stack } from "expo-router";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { useEffect } from "react";

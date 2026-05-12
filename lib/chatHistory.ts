@@ -1,4 +1,4 @@
-// ~/luma/lib/chatHistory.ts
+// ~/naelo-app/lib/chatHistory.ts
 // Управління історією чатів — зберігання сесій в AsyncStorage
 
 import AsyncStorage from "@react-native-async-storage/async-storage";

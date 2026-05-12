@@ -1,4 +1,4 @@
-// ~/luma/app/my-path.tsx
+// ~/naelo-app/app/my-path.tsx
 // Мій шлях — графік енергії + 🟢 Додай / 🔴 Відпусти + стрічка відповідей
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

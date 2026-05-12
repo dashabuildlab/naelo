@@ -1,4 +1,4 @@
-// ~/luma/app/stats.tsx
+// ~/naelo-app/app/stats.tsx
 // Повна статистика — графік, streak-календар, практики
 
 import React, { useCallback, useState } from "react";
@@ -193,18 +193,29 @@ export default function StatsScreen() {
           )}
         </View>
 
-        {/* ── Streak-календар ── */}
+        {/* ── Активність-графік (вертикальні стовпчики) ── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Активність — {rangeLabel}</Text>
-          <View style={styles.calGrid}>
+          <View style={styles.barGrid}>
             {calDays.map(day => {
               const energy = checkinMap[day];
               const has = energy !== undefined;
+              const heightPct = has ? Math.max(8, energy) : 4;       // мінімум 4% щоб видно було порожній стан
               const d = new Date(day + "T00:00:00");
               return (
-                <View key={day} style={styles.calCell}>
-                  <View style={[styles.calDot, { backgroundColor: has ? scoreColor(energy) : "rgba(255,255,255,0.07)" }]} />
-                  <Text style={styles.calDay}>{d.getDate()}</Text>
+                <View key={day} style={styles.barCell}>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: `${heightPct}%` as any,
+                          backgroundColor: has ? scoreColor(energy) : "rgba(255,255,255,0.10)",
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.barDay}>{d.getDate()}</Text>
                 </View>
               );
             })}
@@ -214,10 +225,10 @@ export default function StatsScreen() {
               { color: COLORS.success,  label: "Висока" },
               { color: COLORS.scoreMid, label: "Середня" },
               { color: COLORS.danger,   label: "Низька" },
-              { color: "rgba(255,255,255,0.07)", label: "Немає" },
+              { color: "rgba(255,255,255,0.10)", label: "Немає" },
             ].map(({ color, label }) => (
               <View key={label} style={styles.legendItem}>
-                <View style={[styles.calDot, { backgroundColor: color }]} />
+                <View style={[styles.legendSwatch, { backgroundColor: color }]} />
                 <Text style={styles.legendText}>{label}</Text>
               </View>
             ))}
@@ -277,32 +288,35 @@ const styles = StyleSheet.create({
 
   summaryRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   summaryCard: {
-    flex: 1, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SIZES.radiusLarge,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 14, alignItems: "center", gap: 4,
+    flex: 1, backgroundColor: "rgba(255,255,255,0.10)", borderRadius: SIZES.radiusLarge,   // ⬆ 0.04 → 0.10
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", padding: 14, alignItems: "center", gap: 4,
   },
   summaryValue: { fontSize: 26, fontWeight: "800", color: COLORS.text },
-  summaryLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11, textAlign: "center", lineHeight: 15 },
+  summaryLabel: { color: "rgba(255,255,255,0.65)", fontSize: 11, textAlign: "center", lineHeight: 15 },  // ⬆ 0.4 → 0.65
 
   card: {
-    backgroundColor: "rgba(255,255,255,0.04)", borderRadius: SIZES.radiusLarge,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 16, marginBottom: 16, gap: 12,
+    backgroundColor: "rgba(255,255,255,0.10)", borderRadius: SIZES.radiusLarge,            // ⬆ 0.04 → 0.10
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", padding: 16, marginBottom: 16, gap: 12,
   },
   cardTitle: { color: COLORS.text, fontSize: 14, fontWeight: "700" },
 
   emptyWrap: { paddingVertical: 16, alignItems: "center" },
-  emptyHint: { color: "rgba(255,255,255,0.3)", fontSize: 13, textAlign: "center" },
+  emptyHint: { color: "rgba(255,255,255,0.55)", fontSize: 13, textAlign: "center" },        // ⬆ 0.3 → 0.55
 
   bestWorst: { gap: 3 },
-  bestText:  { color: "rgba(255,255,255,0.45)", fontSize: 12 },
-  worstText: { color: "rgba(255,255,255,0.45)", fontSize: 12 },
+  bestText:  { color: "rgba(255,255,255,0.70)", fontSize: 12 },                              // ⬆ 0.45 → 0.70
+  worstText: { color: "rgba(255,255,255,0.70)", fontSize: 12 },
 
-  calGrid:    { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  calCell:    { alignItems: "center", gap: 2, width: 28 },
-  calDot:     { width: 22, height: 22, borderRadius: 11 },
-  calDay:     { color: "rgba(255,255,255,0.25)", fontSize: 9 },
-  calLegend:  { flexDirection: "row", gap: 14, flexWrap: "wrap", marginTop: 4 },
+  // Вертикальні стовпчики активності (заміна круглих індикаторів)
+  barGrid:    { flexDirection: "row" as const, gap: 4, height: 76, alignItems: "flex-end" as const, paddingVertical: 4 },
+  barCell:    { flex: 1, alignItems: "center" as const, gap: 4 },
+  barTrack:   { width: "100%" as const, maxWidth: 16, height: 56, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 4, overflow: "hidden" as const, justifyContent: "flex-end" as const },
+  barFill:    { width: "100%" as const, borderRadius: 4 },
+  barDay:     { color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "500" as const },
+  calLegend:  { flexDirection: "row", gap: 14, flexWrap: "wrap", marginTop: 10 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  legendText: { color: "rgba(255,255,255,0.4)", fontSize: 11 },
+  legendSwatch: { width: 10, height: 10, borderRadius: 2 },
+  legendText: { color: "rgba(255,255,255,0.55)", fontSize: 11 },
 
   practiceRow:     { flexDirection: "row", alignItems: "center", gap: 10 },
   practiceLabel:   { color: "rgba(255,255,255,0.6)", fontSize: 13, width: 64 },

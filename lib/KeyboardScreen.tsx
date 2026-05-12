@@ -1,4 +1,4 @@
-// ~/luma/app/luma/lib/KeyboardScreen.tsx
+// ~/naelo-app/lib/KeyboardScreen.tsx
 // Стандартна обгортка для екранів з клавіатурою
 // Використовує react-native-keyboard-controller — індустріальний стандарт
 //

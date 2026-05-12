@@ -1,4 +1,4 @@
-// ~/luma/app/privacy.tsx
+// ~/naelo-app/app/privacy.tsx
 // Політика конфіденційності — обов'язкова вимога App Store & Google Play
 
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";

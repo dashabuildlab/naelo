@@ -1,4 +1,4 @@
-// ~/luma/lib/analytics.ts
+// ~/naelo-app/lib/analytics.ts
 // Firebase Analytics + Crashlytics + Performance helpers
 // Graceful no-op fallback when running in Expo Go (no native Firebase modules)
 

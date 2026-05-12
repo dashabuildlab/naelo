@@ -1,4 +1,4 @@
-// ~/luma/lib/AppContext.tsx
+// ~/naelo-app/lib/AppContext.tsx
 // Глобальний стор — score, userName, streak синхронні між усіма екранами
 
 import React, { createContext, useContext, useState, useEffect } from "react";

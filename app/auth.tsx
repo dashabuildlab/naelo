@@ -1,4 +1,4 @@
-// ~/luma/app/auth.tsx
+// ~/naelo-app/app/auth.tsx
 // Авторизація: Google (нативний SDK), Apple, Email — через Firebase
 
 import { useEffect, useState } from "react";
@@ -145,7 +145,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       await sendPasswordResetEmail(auth, email.trim());
-      Alert.alert("Лист надіслано ✉️", `Перевір пошту ${email.trim()} — там буде посилання для скидання пароля`);
+      Alert.alert("Лист надіслано", `Перевір пошту ${email.trim()} — там буде посилання для скидання пароля`);
     } catch (e: any) {
       const msg =
         e?.code === "auth/user-not-found" ? "Акаунт з таким email не знайдено"
@@ -208,14 +208,14 @@ export default function AuthScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={styles.content}>
-        <Text style={styles.logo}>✨ Naelo</Text>
+        <Text style={styles.logo}>Naelo</Text>
         <Text style={styles.title}>
           {mode === "register" ? "Створити акаунт" : "Увійти в Naelo"}
         </Text>
         <Text style={styles.subtitle}>
           {mode === "register"
             ? "Твій прогрес буде збережено в хмарі"
-            : "З поверненням! 🔥"}
+            : "З поверненням"}
         </Text>
 
         <View style={styles.form}>

@@ -47,18 +47,31 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PATCH /api/profile — часткове оновлення
+// PATCH /api/profile — часткове оновлення (UPSERT: створить запис якщо немає)
 router.patch("/", async (req, res) => {
   const { user_id, ...fields } = req.body;
   if (!user_id) return res.status(400).json({ error: "user_id required" });
   const allowed = ["name","score","streak","goal","energy_drains","drains_text",
-                   "concerns","concerns_text","givers_text","energy_givers"];
+                   "concerns","concerns_text","givers_text","energy_givers",
+                   "momentum","last_activity"];   // ⬅️ додано: streak логіка читає last_activity
   const updates = Object.entries(fields).filter(([k]) => allowed.includes(k));
   if (updates.length === 0) return res.json({ ok: true });
-  const set = updates.map(([k], i) => `${k} = $${i + 2}`).join(", ");
-  const vals = [user_id, ...updates.map(([, v]) => v)];
+
+  const cols = updates.map(([k]) => k);
+  const vals = updates.map(([, v]) => v);
+  // INSERT ... ON CONFLICT DO UPDATE — щоб PATCH працював навіть для нового користувача,
+  // який ще не має запису в profiles. Раніше UPDATE WHERE id=$1 мовчки нічого не робив.
+  const colsList = ["id", ...cols].join(", ");
+  const placeholders = ["$1", ...cols.map((_, i) => `$${i + 2}`)].join(", ");
+  const updateSet = cols.map((c, i) => `${c} = $${i + 2}`).join(", ");
+
   try {
-    await pool.query(`UPDATE profiles SET ${set}, updated_at = NOW() WHERE id = $1`, vals);
+    await pool.query(
+      `INSERT INTO profiles (${colsList}, updated_at)
+       VALUES (${placeholders}, NOW())
+       ON CONFLICT (id) DO UPDATE SET ${updateSet}, updated_at = NOW()`,
+      [user_id, ...vals]
+    );
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

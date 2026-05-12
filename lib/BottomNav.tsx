@@ -1,4 +1,4 @@
-// ~/luma/lib/BottomNav.tsx
+// ~/naelo-app/lib/BottomNav.tsx
 // Спільна навігація — єдиний компонент для всіх екранів
 
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";

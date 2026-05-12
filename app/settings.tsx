@@ -1,4 +1,4 @@
-// ~/luma/app/settings.tsx
+// ~/naelo-app/app/settings.tsx
 // Налаштування акаунту — профіль, ім'я, вихід
 
 import { useState, useCallback, useEffect } from "react";

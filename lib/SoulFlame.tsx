@@ -1,4 +1,4 @@
-// ~/luma/lib/SoulFlame.tsx
+// ~/naelo-app/lib/SoulFlame.tsx
 // Вогник душі — єдиний спільний компонент для всіх екранів
 
 import { useEffect, useRef } from "react";

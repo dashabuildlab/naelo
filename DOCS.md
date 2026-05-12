@@ -230,7 +230,7 @@ node index.js
 ### Структура файлів
 
 ```
-C:\luma\
+C:\Users\dell\Desktop\Job\Projects\naelo-app\
 ├── app/                    # Екрани (expo-router)
 │   ├── _layout.tsx         # Root Layout (Stack навігатор)
 │   ├── index.tsx           # Entry point (редирект)
@@ -1055,15 +1055,15 @@ curl -X POST https://mynaelo.com/api/ai/chat \
 Використовується `expo-tunnel.bat` — WSL rsync скрипт.
 
 ```bat
-# C:\luma\expo-tunnel.bat
+# C:\Users\dell\Desktop\Job\Projects\naelo-app\expo-tunnel.bat
 wsl rsync -avz --exclude node_modules --exclude .git --exclude .expo \
   -e "ssh -o StrictHostKeyChecking=no -i /root/.ssh/naelo_key" \
-  /mnt/host/c/luma/ deployer@89.167.40.15:/srv/apps/luma-64/
+  /mnt/host/c/Users/dell/Desktop/Job/Projects/naelo-app/ deployer@89.167.40.15:/srv/apps/luma-64/
 ```
 
 **Запуск деплою:**
 ```
-Запусти C:\luma\expo-tunnel.bat
+Запусти C:\Users\dell\Desktop\Job\Projects\naelo-app\expo-tunnel.bat
 ```
 
 **Після rsync на сервері:**
@@ -1274,7 +1274,7 @@ module.exports = removeAudioPermission;
 
 **Причина:** Прапор `--clean` повністю видаляє папку `android/` разом з `local.properties`. При кожному новому prebuild файл потрібно створювати заново.
 
-**Рішення:** Після кожного `expo prebuild --clean` — перед запуском Gradle — створити файл `C:\luma\android\local.properties`:
+**Рішення:** Після кожного `expo prebuild --clean` — перед запуском Gradle — створити файл `C:\Users\dell\Desktop\Job\Projects\naelo-app\android\local.properties`:
 
 ```
 sdk.dir=C\:\\Users\\dell\\AppData\\Local\\Android\\Sdk
@@ -1455,15 +1455,15 @@ import { Ionicons } from "@expo/vector-icons";
 
 ```powershell
 # 1. Regenerate android/
-cd C:\luma
+cd C:\Users\dell\Desktop\Job\Projects\naelo-app
 npx expo prebuild --platform android --clean
 
 # 2. Відновити local.properties (видаляється --clean)
-# Створити C:\luma\android\local.properties з вмістом:
+# Створити C:\Users\dell\Desktop\Job\Projects\naelo-app\android\local.properties з вмістом:
 # sdk.dir=C\:\\Users\\dell\\AppData\\Local\\Android\\Sdk
 
 # 3. Зібрати підписаний AAB
-cd C:\luma\android
+cd C:\Users\dell\Desktop\Job\Projects\naelo-app\android
 .\gradlew.bat bundleRelease `
   "-Pandroid.injected.signing.store.file=C:\Users\dell\Downloads\Telegram Desktop\@deusn__ingredify (2).jks" `
   "-Pandroid.injected.signing.store.password=<пароль>" `
@@ -1473,7 +1473,7 @@ cd C:\luma\android
 
 **Готовий AAB:**
 ```
-C:\luma\android\app\build\outputs\bundle\release\app-release.aab
+C:\Users\dell\Desktop\Job\Projects\naelo-app\android\app\build\outputs\bundle\release\app-release.aab
 ```
 
 > Перший білд займає ~40 хвилин (компіляція C++). Повторні білди — 3-7 хвилин (кеш Gradle).

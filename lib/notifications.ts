@@ -1,4 +1,4 @@
-// ~/luma/lib/notifications.ts
+// ~/naelo-app/lib/notifications.ts
 // Щоденні нагадування про check-in через expo-notifications
 
 import * as Notifications from "expo-notifications";

@@ -35,7 +35,14 @@ router.post("/evaluate", async (req, res) => {
 
 // Дружнє повідомлення коли AI тимчасово недоступний.
 // Завжди українською, з пропозицією повторити пізніше.
-const FALLBACK_REPLY = "Я зараз ненадовго в тиші — мій AI недоступний 💛 Спробуй ще раз за хвилинку. А поки — зроби 3 глибоких вдихи, я з тобою.";
+// Без емодзі — витриманий, дорослий стиль провідника.
+const FALLBACK_REPLY = "Я зараз ненадовго в тиші. Спробуй ще раз за хвилинку. А поки — зроби три глибоких вдихи, я з тобою.";
+
+// Регекс для видалення емодзі з відповіді AI (safety-net на випадок,
+// якщо Claude все одно їх вставить попри system prompt).
+// Покриває основні Unicode-діапазони емодзі + variation selectors.
+const EMOJI_REGEX = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2700}-\u{27BF}\u{FE0F}\u{200D}\u{1F900}-\u{1F9FF}]/gu;
+const stripEmojis = (text) => text.replace(EMOJI_REGEX, "").replace(/  +/g, " ").trim();
 
 // Класифікація помилок Anthropic SDK для логів і клієнта.
 function classifyAnthropicError(e) {
@@ -61,9 +68,15 @@ router.post("/chat", async (req, res) => {
 ${context ? `=== Контекст користувача ===\n${context}\n===========================` :
 `Ім'я: ${name || "друг"}, Вогник душі: ${score || 50}%, Ціль: ${goal || "розвиток"}, Енергія: ${energy || "середня"}`}
 
+ВАЖЛИВО ПРО СТИЛЬ:
+- НІКОЛИ не використовуй емодзі та символи юнікод-смайлів (🌙, 💪, 😊, ✨, 💛 тощо). Жодних. Зовсім.
+- Витриманий, дорослий, спокійний тон. Без вигуків та надмірної експресії.
+- Не вживай дешевих звертань "подруго", "друже мій", "любий". Просто "ти" або імʼя.
+- Спілкуйся сенсами і метафорами, а не значками.
+
 Відповідай коротко (2-4 речення), тепло і по суті.
 ${is_premium ? "Аналізуй патерни в контексті та звертай увагу на повторювані теми." : ""}
-Якщо бачиш низький score або стрес — запропонуй конкретну міні-практику.
+Якщо бачиш низький score або стрес — запропонуй конкретну міні-практику словами, без значків.
 Ніколи не ставиш медичних діагнозів. Ти — підтримка, не лікар.`;
 
   try {
@@ -74,12 +87,14 @@ ${is_premium ? "Аналізуй патерни в контексті та зв�
       messages: [{ role: "user", content: String(message) }],
     });
 
-    const reply = response?.content?.[0]?.text;
-    if (!reply || typeof reply !== "string" || !reply.trim()) {
+    const rawReply = response?.content?.[0]?.text;
+    if (!rawReply || typeof rawReply !== "string" || !rawReply.trim()) {
       // Anthropic повернув порожнечу → fallback
       return res.json({ reply: FALLBACK_REPLY, fallback: true, reason: "empty_reply" });
     }
 
+    // Safety-net: видалити будь-які емодзі, які Claude міг вставити попри інструкцію
+    const reply = stripEmojis(rawReply);
     res.json({ reply });
   } catch (e) {
     const reason = classifyAnthropicError(e);

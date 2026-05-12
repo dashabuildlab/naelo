@@ -1,4 +1,4 @@
-// ~/luma/app/onboarding.tsx
+// ~/naelo-app/app/onboarding.tsx
 // Онбординг квіз — кроки 1-7 (персоналізація)
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -504,15 +504,26 @@ export default function OnboardingScreen() {
                     : "Я тут поруч. Почнемо м'яко і відновимо твою силу крок за кроком."}
                 </Text>
                 <View style={styles.resultDetails}>
-                  <Text style={styles.resultDetailText}>
-                    Ціль: {goal || customGoal}
-                  </Text>
-                  <Text style={styles.resultDetailText}>
-                    {givers.length > 0 ? `${givers.length} джерел енергії` : "Твої джерела сили"} → стануть твоїми звичками
-                  </Text>
-                  <Text style={styles.resultDetailText}>
-                    {drains.length > 0 ? `${drains.length} загроз` : "Твої виклики"} → Naelo слідкуватиме
-                  </Text>
+                  <View style={styles.resultDetailRow}>
+                    <Text style={styles.resultDetailLabel}>Ціль</Text>
+                    <Text style={styles.resultDetailValue}>{goal || customGoal || "—"}</Text>
+                  </View>
+                  <View style={styles.resultDetailRow}>
+                    <Text style={styles.resultDetailLabel}>Джерела сили</Text>
+                    <Text style={styles.resultDetailValue}>
+                      {givers.length > 0
+                        ? (givers.length === 1 ? "1 джерело — стане звичкою" : `${givers.length} джерел — стануть звичками`)
+                        : "оберемо разом"}
+                    </Text>
+                  </View>
+                  <View style={styles.resultDetailRow}>
+                    <Text style={styles.resultDetailLabel}>Виклики</Text>
+                    <Text style={styles.resultDetailValue}>
+                      {drains.length > 0
+                        ? (drains.length === 1 ? "1 — Naelo слідкуватиме" : `${drains.length} — Naelo слідкуватиме`)
+                        : "обговоримо в чаті"}
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity style={styles.btnPrimary} onPress={finishOnboarding}>
                   <Text style={styles.btnText}>Увійти в Naelo</Text>
@@ -616,13 +627,14 @@ const styles = StyleSheet.create({
   privacyConsentText: { color: "rgba(255,255,255,0.22)", fontSize: 12, textAlign: "center", lineHeight: 18 },
   privacyConsentLink: { color: "rgba(255,179,0,0.45)", textDecorationLine: "underline" },
 
-  // Скляна картка — читабельність поверх відео (кроки 4-6)
+  // Solid темна картка — читабельність поверх відео (кроки 4-6).
+  // Збільшив непрозорість з 0.72 до 0.94 — щоб текст не "плавав" на яскравому фоні.
   glassCard: {
     width: "100%", gap: 14,
-    backgroundColor: "rgba(10,8,18,0.72)",
+    backgroundColor: "rgba(10,8,18,0.94)",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.10)",
     paddingHorizontal: 18,
     paddingVertical: 20,
   },
@@ -632,6 +644,8 @@ const styles = StyleSheet.create({
   resultScore: { color: "#FFB300", fontSize: 64, fontWeight: "800", textAlign: "center", width: "100%" },
   resultLabel: { color: "rgba(255,255,255,0.5)", fontSize: 14, marginTop: -8 },
   resultSub: { color: "rgba(255,255,255,0.6)", fontSize: 15, textAlign: "center", lineHeight: 22 },
-  resultDetails: { width: "100%", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 16, gap: 8, marginTop: 4 },
-  resultDetailText: { color: "rgba(255,255,255,0.7)", fontSize: 14 },
+  resultDetails: { width: "100%", backgroundColor: "rgba(15,12,28,0.92)", borderRadius: 16, padding: 16, gap: 10, marginTop: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
+  resultDetailRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "flex-start" as const, gap: 12 },
+  resultDetailLabel: { color: "rgba(255,255,255,0.5)", fontSize: 13, letterSpacing: 0.3 },
+  resultDetailValue: { color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: "500" as const, flex: 1, textAlign: "right" as const },
 });

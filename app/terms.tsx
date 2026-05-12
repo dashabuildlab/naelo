@@ -1,4 +1,4 @@
-// ~/luma/app/terms.tsx
+// ~/naelo-app/app/terms.tsx
 // Умови використання — обов'язкова вимога App Store & Google Play
 
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";

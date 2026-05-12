@@ -1,4 +1,4 @@
-// ~/luma/lib/sounds.ts
+// ~/naelo-app/lib/sounds.ts
 // Короткі дзинь-сигнали для практик: старт, пауза, кінець
 
 import { Audio } from "expo-av";
