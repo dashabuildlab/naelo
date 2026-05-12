@@ -23,11 +23,11 @@ const { width, height } = Dimensions.get("window");
 
 // Композитне фонове зображення для /home: сфера-вогник з геометричною сіткою,
 // маяк праворуч, нічне небо, океан унизу. Все в одному JPG для швидкого рендеру.
-const HERO_BG = require("../assets/screens/home-hero.jpg");
+const HERO_BG = require("../assets/screens/home-hero.png");
 
 // Зображення для блоків (із 3D-ефектами та свічінням від дизайнера):
-const STREAK_ARCH    = require("../assets/screens/streak-arch.jpg");      // брама зі сходами для streak
-const SYMBOL_BRIDGE  = require("../assets/screens/symbol-bridge.jpg");    // міст для "Символ дня" (Міст)
+const STREAK_ARCH    = require("../assets/screens/streak-arch.png");      // брама зі сходами для streak
+const SYMBOL_BRIDGE  = require("../assets/screens/symbol-bridge.png");    // міст для "Символ дня" (Міст)
 
 // --- Світлячки (sparks навколо сфери) ---
 const SPARKS = Array.from({ length: 16 }).map((_, i) => ({
