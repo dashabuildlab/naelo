@@ -510,27 +510,27 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Streak-брама — реальне зображення з gold glow rim */}
-            {streak > 0 && (
-              <View style={styles.streakSide}>
-                <View style={styles.streakImage}>
-                  <Image source={STREAK_ARCH} style={styles.streakImageInner} resizeMode="cover" />
-                  {/* Inner glow overlay для відчуття 3D */}
-                  <LinearGradient
-                    colors={["rgba(255,179,0,0.10)", "transparent", "rgba(0,0,0,0.4)"]}
-                    locations={[0, 0.5, 1]}
-                    style={StyleSheet.absoluteFillObject}
-                    pointerEvents="none"
-                  />
-                </View>
-                <View style={styles.streakBadge}>
-                  <Ionicons name="flame" size={11} color={COLORS.primary} />
-                  <Text style={styles.streakBadgeText}>
-                    {streak} день поспіль
-                  </Text>
-                </View>
+            {/* Streak-брама — реальне зображення з gold glow rim.
+                Показуємо ЗАВЖДИ (включаючи streak=0 — для нових юзерів просто "Почни сьогодні"). */}
+            <View style={styles.streakSide}>
+              <View style={styles.streakImage}>
+                <Image source={STREAK_ARCH} style={styles.streakImageInner} resizeMode="cover" />
+                {/* М'який bottom-fade — щоб badge нагорі читався легко.
+                    Без top-overlay щоб не приглушити природне свічіння арки. */}
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.35)"]}
+                  locations={[0.55, 1]}
+                  style={StyleSheet.absoluteFillObject}
+                  pointerEvents="none"
+                />
               </View>
-            )}
+              <View style={styles.streakBadge}>
+                <Ionicons name="flame" size={11} color={COLORS.primary} />
+                <Text style={styles.streakBadgeText}>
+                  {streak > 0 ? `${streak} день поспіль` : "Почни сьогодні"}
+                </Text>
+              </View>
+            </View>
           </View>
         ) : (
           <View style={styles.answeredCard}>
@@ -571,14 +571,7 @@ export default function HomeScreen() {
               {/* Якщо символ дня — Міст: використовуємо реальне зображення.
                   Інакше fallback на Ionicons (для інших 6 символів асети будуть пізніше) */}
               {todaySymbol.title === "Міст" ? (
-                <>
-                  <Image source={SYMBOL_BRIDGE} style={styles.symbolImageInner} resizeMode="cover" />
-                  <LinearGradient
-                    colors={["rgba(255,179,0,0.08)", "transparent"]}
-                    style={StyleSheet.absoluteFillObject}
-                    pointerEvents="none"
-                  />
-                </>
+                <Image source={SYMBOL_BRIDGE} style={styles.symbolImageInner} resizeMode="cover" />
               ) : (
                 <Ionicons name={todaySymbol.icon} size={36} color="rgba(255,179,0,0.5)" />
               )}
