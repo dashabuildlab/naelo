@@ -118,8 +118,10 @@ export default function HomeScreen() {
   const today = new Date();
   const todayIndex = today.getDate() % DAILY_QUESTIONS.length;
   const dailyQ = DAILY_QUESTIONS[todayIndex];
-  const symbolIndex = today.getDate() % SYMBOLS.length;
-  const todaySymbol = SYMBOLS[symbolIndex];
+  // Тимчасово: завжди показуємо "Міст" — єдиний символ з реальним фото.
+  // Коли будуть готові фото для решти 6 символів — повернути ротацію:
+  //   const symbolIndex = today.getDate() % SYMBOLS.length;
+  const todaySymbol = SYMBOLS.find(s => s.title === "Міст") || SYMBOLS[0];
   const greeting = getTimeGreeting();
 
   useEffect(() => { logScreen("Home"); }, []);
@@ -383,14 +385,28 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* ═════ HERO: сфера з фоном + хедер + score ═════ */}
+      {/* Premium pill — floating над усім, завжди доступний */}
+      <TouchableOpacity
+        style={styles.premiumFloating}
+        onPress={() => router.push("/paywall")}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="diamond" size={14} color={COLORS.primary} />
+        <Text style={styles.premiumBtnText}>Premium</Text>
+      </TouchableOpacity>
+
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollOuter}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={110}
+      >
+
+      {/* ═════ HERO: сфера з фоном + score (тепер скролиться разом з контентом) ═════ */}
       <View style={styles.hero}>
-        {/* Готова композиція: сфера + сітка + маяк + океан вже в одному JPG.
-            resizeMode="cover" — обріже бокові краї у portrait, центрує по сфері. */}
         <Image source={HERO_BG} style={styles.heroBg} resizeMode="cover" />
 
-        {/* Затемнення поверх — динамічно темніше при низькому score
-            (вогник "притухає"). При повному score — 0, при найнижчому — 0.55. */}
         <View style={[styles.heroDim, { backgroundColor: `rgba(10,8,18,${dimOpacity})` }]} pointerEvents="none" />
 
         {SPARKS.map((s) => <Spark key={s.id} {...s} />)}
@@ -402,25 +418,6 @@ export default function HomeScreen() {
           style={styles.heroFade}
           pointerEvents="none"
         />
-
-        {/* Хедер */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerHi}>Привіт, {userName || "друже"}</Text>
-            <View style={styles.greetingRow}>
-              <Text style={styles.greetingText}>{greeting}</Text>
-              <Ionicons name="sparkles-outline" size={11} color={COLORS.primary} />
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.premiumBtn}
-            onPress={() => router.push("/paywall")}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="diamond" size={14} color={COLORS.primary} />
-            <Text style={styles.premiumBtnText}>Premium</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Сфера: тап → чат */}
         <TouchableOpacity
@@ -460,14 +457,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ═════ Контент ═════ */}
-      <KeyboardAwareScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollInner}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        bottomOffset={110}
-      >
+      {/* ═════ Контент: картки з паддингом (всередині того ж scroll) ═════ */}
+      <View style={styles.cardsWrap}>
         {/* Banner-порада */}
         <TouchableOpacity
           style={styles.adviceCard}
@@ -651,7 +642,8 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={{ height: 100 }} />
+          <View style={{ height: 100 }} />
+        </View>
       </KeyboardAwareScrollView>
 
       <BottomNav active="home" />
@@ -685,23 +677,21 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0, bottom: 0,
   },
 
-  // Хедер
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: 24,
-    paddingTop: SIZES.paddingTop,
-    zIndex: 10,
-  },
-  headerHi: { color: "#fff", fontSize: 22, fontWeight: "700", letterSpacing: 0.2 },
-  greetingRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
-  greetingText: { color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "400" },
-  premiumBtn: {
+  // Premium pill — floating top-right (поверх скрол-контенту, завжди видно)
+  premiumFloating: {
+    position: "absolute",
+    top: SIZES.paddingTop,
+    right: 16,
+    zIndex: 100,
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "rgba(255,179,0,0.08)",
-    borderWidth: 1, borderColor: "rgba(255,179,0,0.32)",
+    backgroundColor: "rgba(15,10,25,0.85)",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.40)",
     borderRadius: 22, paddingHorizontal: 14, paddingVertical: 7,
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   premiumBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: "600", letterSpacing: 0.3 },
 
@@ -745,8 +735,11 @@ const styles = StyleSheet.create({
   thankYouText: { color: COLORS.primary, fontSize: 12, fontWeight: "600" },
 
   // ═════ SCROLL ═════
+  // Single scroll: hero (full width, no padding) + cardsWrap (with padding).
+  // Hero лишається без бокового padding щоб займати всю ширину.
   scroll: { flex: 1 },
-  scrollInner: { paddingHorizontal: 16, paddingTop: 0, gap: 14 },
+  scrollOuter: { paddingBottom: 0 },
+  cardsWrap: { paddingHorizontal: 16, paddingTop: 4, gap: 14 },
 
   // Спільний лейбл секції
   cardLabel: {
@@ -792,19 +785,19 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   questionTitle: {
-    color: "#fff", fontSize: 19, fontWeight: "700", lineHeight: 25,
+    color: "#fff", fontSize: 17, fontWeight: "700", lineHeight: 22,
   },
   questionInput: {
     backgroundColor: "rgba(255,255,255,0.05)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
-    color: "#fff", fontSize: 14, minHeight: 44, maxHeight: 100,
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
+    color: "#fff", fontSize: 13, minHeight: 40, maxHeight: 90,
   },
   ctaPrimary: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
     backgroundColor: COLORS.primary,
-    paddingVertical: 14, paddingHorizontal: 18,
-    borderRadius: 28, marginTop: 4,
+    paddingVertical: 12, paddingHorizontal: 16,
+    borderRadius: 26, marginTop: 4,
     // Виразне золоте свічіння — головна CTA
     shadowColor: "#FFB300",
     shadowOffset: { width: 0, height: 0 },
