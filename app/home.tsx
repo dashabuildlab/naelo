@@ -426,16 +426,6 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Premium pill — floating над усім, завжди доступний */}
-      <TouchableOpacity
-        style={styles.premiumFloating}
-        onPress={() => router.push("/paywall")}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="diamond" size={14} color={COLORS.primary} />
-        <Text style={styles.premiumBtnText}>Premium</Text>
-      </TouchableOpacity>
-
       <KeyboardAwareScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollOuter}
@@ -444,7 +434,7 @@ export default function HomeScreen() {
         bottomOffset={110}
       >
 
-      {/* ═════ HERO: сфера з фоном + score (тепер скролиться разом з контентом) ═════ */}
+      {/* ═════ HERO: компактна сфера з хедером (greeting + Premium) ═════ */}
       <View style={styles.hero}>
         <Image source={HERO_BG} style={styles.heroBg} resizeMode="cover" />
 
@@ -459,6 +449,25 @@ export default function HomeScreen() {
           style={styles.heroFade}
           pointerEvents="none"
         />
+
+        {/* Хедер: greeting ліворуч, Premium праворуч */}
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerHi}>Привіт, {userName || "друже"}</Text>
+            <View style={styles.greetingRow}>
+              <Text style={styles.greetingText}>{greeting}</Text>
+              <Ionicons name="sparkles-outline" size={11} color={COLORS.primary} />
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.premiumBtn}
+            onPress={() => router.push("/paywall")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="diamond" size={14} color={COLORS.primary} />
+            <Text style={styles.premiumBtnText}>Premium</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Сфера: тап → чат */}
         <TouchableOpacity
@@ -690,20 +699,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgDark },
 
-  // ═════ HERO ═════
+  // ═════ HERO — компактний (на ~35% viewport замість 50%) ═════
   hero: {
     position: "relative",
-    height: height * 0.50,
+    height: height * 0.42,
     overflow: "hidden",
   },
   heroBg: {
     position: "absolute", top: 0, left: 0,
-    width, height: height * 0.50,
+    width, height: height * 0.42,
   },
   heroFade: {
     position: "absolute",
     bottom: 0, left: 0, right: 0,
-    height: height * 0.22,
+    height: height * 0.18,
   },
 
   // Динамічне затемнення поверх композиції — затемнюється коли score падає.
@@ -713,46 +722,53 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0, bottom: 0,
   },
 
-  // Premium pill — floating top-right (поверх скрол-контенту, завжди видно)
-  premiumFloating: {
-    position: "absolute",
-    top: SIZES.paddingTop,
-    right: 16,
-    zIndex: 100,
+  // Хедер у hero — greeting ліворуч + Premium pill праворуч
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingHorizontal: 20,
+    paddingTop: SIZES.paddingTop,
+    zIndex: 10,
+  },
+  headerHi: { color: "#fff", fontSize: 22, fontWeight: "700", letterSpacing: 0.2 },
+  greetingRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
+  greetingText: { color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "400" },
+  premiumBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "rgba(15,10,25,0.85)",
+    backgroundColor: "rgba(15,10,25,0.55)",
     borderWidth: 1, borderColor: "rgba(255,179,0,0.40)",
     borderRadius: 22, paddingHorizontal: 14, paddingVertical: 7,
     shadowColor: "#FFB300",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.30,
     shadowRadius: 8,
     elevation: 6,
   },
   premiumBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: "600", letterSpacing: 0.3 },
 
-  // Сфера-tap (центральна область)
+  // Сфера-tap — центральна зона, score візуально всередині сфери
   sphereTap: {
     position: "absolute",
-    top: height * 0.18,
+    top: height * 0.14,
     left: 0, right: 0,
     alignItems: "center",
     zIndex: 5,
   },
   sphereLabelRow: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   sphereLabel: {
     color: "rgba(255,255,255,0.72)",
     fontSize: 14, fontWeight: "500", letterSpacing: 0.3,
   },
   sphereScore: {
-    color: "#fff", fontSize: 60, fontWeight: "300",
-    letterSpacing: 1, lineHeight: 70,
-    textShadowColor: "rgba(255,179,0,0.4)",
+    color: "#fff", fontSize: 50, fontWeight: "300",
+    letterSpacing: 1, lineHeight: 58,
+    textShadowColor: "rgba(255,179,0,0.5)",
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 22,
+    textShadowRadius: 20,
   },
   deltaBadge: {
     flexDirection: "row", alignItems: "center", gap: 4,
