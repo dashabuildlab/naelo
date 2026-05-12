@@ -450,15 +450,9 @@ export default function HomeScreen() {
           pointerEvents="none"
         />
 
-        {/* Хедер: greeting ліворуч, Premium праворуч */}
+        {/* Хедер: тільки Premium pill справа (без greeting) */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerHi}>Привіт, {userName || "друже"}</Text>
-            <View style={styles.greetingRow}>
-              <Text style={styles.greetingText}>{greeting}</Text>
-              <Ionicons name="sparkles-outline" size={11} color={COLORS.primary} />
-            </View>
-          </View>
+          <View style={{ flex: 1 }} />
           <TouchableOpacity
             style={styles.premiumBtn}
             onPress={() => router.push("/paywall")}
