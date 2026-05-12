@@ -13,8 +13,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { COLORS, SIZES } from "../lib/theme";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import BottomNav from "../lib/BottomNav";
-import KeyboardScreen from "../lib/KeyboardScreen";
 import { useAppStore } from "../lib/AppContext";
 import { Ionicons } from "@expo/vector-icons";
 import { logScreen, logEvent } from "../lib/analytics";
@@ -380,7 +380,7 @@ export default function HomeScreen() {
   const showDelta = scoreChange !== 0;
 
   return (
-    <KeyboardScreen style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       {/* ═════ HERO: сфера з фоном + хедер + score ═════ */}
@@ -461,11 +461,12 @@ export default function HomeScreen() {
       </View>
 
       {/* ═════ Контент ═════ */}
-      <ScrollView
+      <KeyboardAwareScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollInner}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bottomOffset={110}
       >
         {/* Banner-порада */}
         <TouchableOpacity
@@ -658,10 +659,10 @@ export default function HomeScreen() {
         </View>
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <BottomNav active="home" />
-    </KeyboardScreen>
+    </View>
   );
 }
 
