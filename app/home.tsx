@@ -25,6 +25,10 @@ const { width, height } = Dimensions.get("window");
 // маяк праворуч, нічне небо, океан унизу. Все в одному JPG для швидкого рендеру.
 const HERO_BG = require("../assets/screens/home-hero.jpg");
 
+// Зображення для блоків (із 3D-ефектами та свічінням від дизайнера):
+const STREAK_ARCH    = require("../assets/screens/streak-arch.jpg");      // брама зі сходами для streak
+const SYMBOL_BRIDGE  = require("../assets/screens/symbol-bridge.jpg");    // міст для "Символ дня" (Міст)
+
 // --- Світлячки (sparks навколо сфери) ---
 const SPARKS = Array.from({ length: 16 }).map((_, i) => ({
   id: i,
@@ -505,12 +509,18 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Streak-брама на правій стороні картки */}
+            {/* Streak-брама — реальне зображення з gold glow rim */}
             {streak > 0 && (
               <View style={styles.streakSide}>
                 <View style={styles.streakImage}>
-                  {/* TODO: підставити реальне зображення брами */}
-                  <Ionicons name="moon-outline" size={28} color="rgba(255,179,0,0.35)" />
+                  <Image source={STREAK_ARCH} style={styles.streakImageInner} resizeMode="cover" />
+                  {/* Inner glow overlay для відчуття 3D */}
+                  <LinearGradient
+                    colors={["rgba(255,179,0,0.10)", "transparent", "rgba(0,0,0,0.4)"]}
+                    locations={[0, 0.5, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                  />
                 </View>
                 <View style={styles.streakBadge}>
                   <Ionicons name="flame" size={11} color={COLORS.primary} />
@@ -557,8 +567,20 @@ export default function HomeScreen() {
           </View>
           <View style={styles.symbolRow}>
             <View style={styles.symbolImage}>
-              {/* TODO: підставити реальне зображення символу */}
-              <Ionicons name={todaySymbol.icon} size={36} color="rgba(255,179,0,0.5)" />
+              {/* Якщо символ дня — Міст: використовуємо реальне зображення.
+                  Інакше fallback на Ionicons (для інших 6 символів асети будуть пізніше) */}
+              {todaySymbol.title === "Міст" ? (
+                <>
+                  <Image source={SYMBOL_BRIDGE} style={styles.symbolImageInner} resizeMode="cover" />
+                  <LinearGradient
+                    colors={["rgba(255,179,0,0.08)", "transparent"]}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                  />
+                </>
+              ) : (
+                <Ionicons name={todaySymbol.icon} size={36} color="rgba(255,179,0,0.5)" />
+              )}
             </View>
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={styles.symbolTitle}>{todaySymbol.title}</Text>
@@ -737,33 +759,50 @@ const styles = StyleSheet.create({
     color: COLORS.primary, fontSize: 13, fontWeight: "600", letterSpacing: 0.3,
   },
 
-  // ═════ Banner-порада ═════
+  // ═════ Banner-порада (glass + gold glow) ═════
   adviceCard: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: "rgba(15,12,28,0.85)",
+    backgroundColor: "rgba(18,18,24,0.72)",         // ← per design spec
     borderWidth: 1, borderColor: "rgba(255,179,0,0.18)",
     borderRadius: 18, padding: 14,
+    // 3D depth + subtle gold glow
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
   },
   adviceIconBox: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: "rgba(255,179,0,0.12)",
+    backgroundColor: "rgba(255,179,0,0.14)",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.28)",
     alignItems: "center", justifyContent: "center",
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   adviceTitle: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  adviceSub: { color: "rgba(255,255,255,0.55)", fontSize: 12, lineHeight: 17 },
+  adviceSub: { color: "rgba(255,255,255,0.62)", fontSize: 12, lineHeight: 17 },
 
-  // ═════ Question card ═════
+  // ═════ Question card (glass + depth) ═════
   questionCard: {
     flexDirection: "row", gap: 12,
-    backgroundColor: "rgba(15,12,28,0.92)",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(18,18,24,0.78)",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.16)",
     borderRadius: 18, padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
   },
   questionTitle: {
     color: "#fff", fontSize: 19, fontWeight: "700", lineHeight: 25,
   },
   questionInput: {
     backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
     color: "#fff", fontSize: 14, minHeight: 44, maxHeight: 100,
   },
@@ -772,31 +811,51 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingVertical: 14, paddingHorizontal: 18,
     borderRadius: 28, marginTop: 4,
+    // Виразне золоте свічіння — головна CTA
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 12,
   },
-  ctaPrimaryDim: { opacity: 0.78 },
+  ctaPrimaryDim: { opacity: 0.78, shadowOpacity: 0.20 },
   ctaPrimaryText: { color: "#0a0812", fontSize: 15, fontWeight: "700", letterSpacing: 0.2 },
 
-  // Streak side (брама + бейдж)
+  // Streak side (брама + бейдж) — з gold glow
   streakSide: {
-    width: 96,
+    width: 100,
     alignItems: "center",
     position: "relative",
   },
   streakImage: {
-    width: 96, height: 142,
-    borderRadius: 14,
-    backgroundColor: "rgba(40,30,55,0.55)",
-    borderWidth: 1, borderColor: "rgba(255,179,0,0.12)",
+    width: 100, height: 152,
+    borderRadius: 16,
+    backgroundColor: "#0a0812",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.25)",
     alignItems: "center", justifyContent: "center",
     overflow: "hidden",
+    // Gold glow — iOS shadow + Android elevation
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  streakImageInner: {
+    width: "100%", height: "100%",
   },
   streakBadge: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "rgba(15,12,28,0.92)",
-    borderWidth: 1, borderColor: "rgba(255,179,0,0.32)",
+    backgroundColor: "rgba(10,8,18,0.92)",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.45)",
     borderRadius: 14, paddingHorizontal: 8, paddingVertical: 4,
-    position: "absolute", top: 6, left: -2, right: -2,
+    position: "absolute", top: 8, left: -2, right: -2,
     justifyContent: "center",
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   streakBadgeText: { color: COLORS.primary, fontSize: 10, fontWeight: "700" },
 
@@ -811,19 +870,33 @@ const styles = StyleSheet.create({
   },
   hintText: { color: "rgba(255,255,255,0.78)", fontSize: 13, fontWeight: "500" },
 
-  // ═════ Symbol of day ═════
+  // ═════ Symbol of day (glass + depth) ═════
   symbolCard: {
-    backgroundColor: "rgba(15,12,28,0.92)",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(18,18,24,0.78)",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.16)",
     borderRadius: 18, padding: 16, gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
   },
   symbolHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   symbolRow: { flexDirection: "row", gap: 14, alignItems: "center" },
   symbolImage: {
-    width: 92, height: 80, borderRadius: 12,
-    backgroundColor: "rgba(40,30,55,0.55)",
-    borderWidth: 1, borderColor: "rgba(255,179,0,0.10)",
+    width: 96, height: 84, borderRadius: 12,
+    backgroundColor: "#0a0812",
+    borderWidth: 1, borderColor: "rgba(255,179,0,0.22)",
     alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.30,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  symbolImageInner: {
+    width: "100%", height: "100%",
   },
   symbolTitle: { color: "#fff", fontSize: 19, fontWeight: "700" },
   symbolText: { color: "rgba(255,255,255,0.68)", fontSize: 13, lineHeight: 18 },
@@ -839,15 +912,27 @@ const styles = StyleSheet.create({
   focusRow: { flexDirection: "row", gap: 10 },
   focusCard: {
     flex: 1,
-    backgroundColor: "rgba(15,12,28,0.92)",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(18,18,24,0.78)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 16, padding: 12, gap: 6,
     minHeight: 148,
+    // depth shadow — щоб 3 картки "лежали" над фоном
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
   },
   focusIconBox: {
-    width: 36, height: 36, borderRadius: 10,
+    width: 38, height: 38, borderRadius: 11,
     alignItems: "center", justifyContent: "center",
     marginBottom: 4,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+    // subtle glow з кольору самої іконки (буде overriddenable inline)
+    shadowColor: "#FFB300",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   focusTitle: { color: "#fff", fontSize: 13, fontWeight: "700" },
   focusSub: { color: "rgba(255,255,255,0.55)", fontSize: 11, lineHeight: 14, flex: 1 },
